@@ -247,16 +247,12 @@ export default function VinylPage({ pairing, track, resolvedCover, onBack }: Pro
       </div>
 
       {/* ── Main layout ── */}
-      <div className="relative z-20 flex h-full" style={{ paddingTop: 68, paddingBottom: 12 }}>
+      <div className="relative z-20 h-full" style={{ paddingTop: 68, paddingBottom: 12 }}>
 
-        {/* ════ SCENE (free-layout canvas) ════ */}
+        {/* ════ SCENE (free-layout canvas — always fills full screen) ════ */}
         <div
           ref={sceneRef}
-          className="relative flex-shrink-0 overflow-hidden"
-          style={{
-            width: showCustom || showLog ? '58%' : '100%',
-            transition: 'width 0.45s ease',
-          }}
+          className="relative w-full h-full overflow-hidden"
         >
           {/* ── JACKET layer ── */}
           <div
@@ -418,7 +414,7 @@ export default function VinylPage({ pairing, track, resolvedCover, onBack }: Pro
             )}
           </div>
 
-          {/* edit mode title overlay */}
+          {/* title overlay — shown when no panel open */}
           {!showCustom && !showLog && (
             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 text-center pointer-events-none">
               <p className="text-white/20 text-xs uppercase tracking-[0.25em]">Now Playing</p>
@@ -428,61 +424,69 @@ export default function VinylPage({ pairing, track, resolvedCover, onBack }: Pro
               </h1>
             </div>
           )}
-        </div>
 
-        {/* ════ RIGHT PANEL ════ */}
-        {(showCustom || showLog) && (
-          <div className="flex-1 min-w-0 flex flex-col overflow-hidden pr-8 pl-2"
-            style={{ paddingTop: 4 }}>
+          {/* ════ RIGHT OVERLAY PANEL — sits over the scene on the right ════ */}
+          {(showCustom || showLog) && (
+            <div
+              className="absolute top-0 right-0 bottom-0 flex flex-col overflow-hidden"
+              style={{
+                width: 'clamp(300px, 34%, 420px)',
+                background: 'rgba(6,6,8,0.72)',
+                backdropFilter: 'blur(28px)',
+                borderLeft: '1px solid rgba(255,255,255,0.07)',
+                zIndex: 30,
+                padding: '20px 20px 16px 20px',
+              }}
+            >
+              {/* panel title */}
+              <div className="flex-shrink-0 mb-4">
+                <p className="text-white/25 text-[10px] uppercase tracking-[0.2em] mb-0.5">Now Playing</p>
+                <h1 className="text-white font-bold leading-tight text-base">{displayTitle}</h1>
+              </div>
 
-            {/* title */}
-            <div className="flex-shrink-0 mb-4">
-              <p className="text-white/25 text-xs uppercase tracking-[0.2em] mb-0.5">Now Playing</p>
-              <h1 className="text-white font-bold leading-tight text-lg">{displayTitle}</h1>
+              {/* ── CUSTOM PANEL ── */}
+              {showCustom && (
+                <div className="flex-1 min-h-0 overflow-y-auto space-y-6 pr-1"
+                  style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}>
+                  <CustomPanel
+                    vd={vd}
+                    update={update}
+                    updateJacket={updateJacket}
+                    updateDisk={updateDisk}
+                    rgb={rgb}
+                    onJacketUpload={() => jacketInputRef.current?.click()}
+                  />
+                </div>
+              )}
+
+              {/* ── LOG PANEL ── */}
+              {showLog && (
+                <div className="flex-1 min-h-0 flex flex-col gap-3">
+                  <textarea
+                    value={logDraft}
+                    onChange={e => setLogDraft(e.target.value)}
+                    onBlur={() => update({ note: logDraft })}
+                    placeholder={'가사나 대화 로그를 자유롭게 기록해보세요...\n\n저장은 자동으로 됩니다.'}
+                    className="flex-1 min-h-0 w-full rounded-2xl px-5 py-4 text-white/80 text-sm leading-[1.95] resize-none focus:outline-none transition-all"
+                    style={{
+                      background: 'rgba(255,255,255,0.06)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      scrollbarWidth: 'thin',
+                      scrollbarColor: 'rgba(255,255,255,0.1) transparent',
+                      caretColor: pairing.theme_color,
+                    }}
+                  />
+                  <button
+                    onClick={() => update({ note: logDraft })}
+                    className="flex-shrink-0 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:scale-[1.01] active:scale-95"
+                    style={{ background: `rgba(${rgb},0.45)`, border: `1px solid rgba(${rgb},0.7)` }}>
+                    저장
+                  </button>
+                </div>
+              )}
             </div>
-
-            {/* ── CUSTOM PANEL ── */}
-            {showCustom && (
-              <div className="flex-1 min-h-0 overflow-y-auto space-y-6 pr-1"
-                style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}>
-                <CustomPanel
-                  vd={vd}
-                  update={update}
-                  updateJacket={updateJacket}
-                  updateDisk={updateDisk}
-                  rgb={rgb}
-                  onJacketUpload={() => jacketInputRef.current?.click()}
-                />
-              </div>
-            )}
-
-            {/* ── LOG PANEL ── */}
-            {showLog && (
-              <div className="flex-1 min-h-0 flex flex-col gap-3">
-                <textarea
-                  value={logDraft}
-                  onChange={e => setLogDraft(e.target.value)}
-                  onBlur={() => update({ note: logDraft })}
-                  placeholder={'가사나 대화 로그를 자유롭게 기록해보세요...\n\n저장은 자동으로 됩니다.'}
-                  className="flex-1 min-h-0 w-full rounded-2xl px-5 py-4 text-white/80 text-sm leading-[1.95] resize-none focus:outline-none transition-all"
-                  style={{
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    scrollbarWidth: 'thin',
-                    scrollbarColor: 'rgba(255,255,255,0.1) transparent',
-                    caretColor: pairing.theme_color,
-                  }}
-                />
-                <button
-                  onClick={() => update({ note: logDraft })}
-                  className="flex-shrink-0 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:scale-[1.01] active:scale-95"
-                  style={{ background: `rgba(${rgb},0.45)`, border: `1px solid rgba(${rgb},0.7)` }}>
-                  저장
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* hidden file input */}
@@ -700,3 +704,6 @@ function SliderRow({ icon, label, min, max, step = 1, value, onChange, unit = ''
     </div>
   );
 }
+
+
+export default VinylPage
