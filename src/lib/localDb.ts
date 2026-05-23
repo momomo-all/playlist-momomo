@@ -190,7 +190,18 @@ export async function deleteCover(id: string): Promise<void> {
   await tx('covers', 'readwrite', s => s.delete(id));
 }
 
-// Helper to resolve local-cover:// URLs to object URLs
+// ─── Vinyl Notes (localStorage) ────────────────────────
+
+export function getVinylNote(pairingId: string): string {
+  return localStorage.getItem(`vinyl_note_${pairingId}`) ?? '';
+}
+
+export function saveVinylNote(pairingId: string, text: string): void {
+  localStorage.setItem(`vinyl_note_${pairingId}`, text);
+}
+
+// ─── Cover URL cache ────────────────────────────────────
+
 const coverCache = new Map<string, string>();
 
 export async function resolveCoverUrl(url: string): Promise<string> {
