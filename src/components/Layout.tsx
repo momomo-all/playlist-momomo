@@ -29,7 +29,7 @@ export default function Layout({ children, onBack, backLabel, title, actions }: 
                 <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
                   <Music2 className="w-4 h-4 text-white" />
                 </div>
-                <span className="text-white font-semibold text-sm tracking-tight">드림 페어링 아카이브</span>
+                <span className="text-white font-semibold text-sm tracking-tight">My Playlist</span>
               </div>
             )}
             {title && (
