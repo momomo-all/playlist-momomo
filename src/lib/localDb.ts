@@ -194,26 +194,56 @@ export async function deleteCover(id: string): Promise<void> {
 
 // ─── Vinyl Data (localStorage) ─────────────────────────
 
+export interface ElementTransform {
+  x: number;        // % offset from default center
+  y: number;
+  scale: number;    // 1.0 = default
+  rotate: number;   // degrees
+}
+
+export interface LabelStyle {
+  text: string;
+  fontSize: number;
+  fontFamily: string;
+  textAlign: string;
+  color: string;
+}
+
 export interface VinylData {
   title: string;
   note: string;
   jacketCoverId: string;
   diskCoverId: string;
   // pattern engine
-  patternTheme: string;        // 'wave' | 'supernova' | 'mandala' | 'radial' | 'aurora' | 'none'
-  gradientColors: string[];    // 2-3 hex colors
+  patternTheme: string;
+  gradientColors: string[];
+  // legacy label fields (still used in non-edit display)
   labelText: string;
-  labelFontSize: number;       // px
-  labelTextAlign: string;      // 'center' | 'left' | 'right'
+  labelFontSize: number;
+  labelTextAlign: string;
+  // free layout
+  jacketTransform: ElementTransform;
+  diskTransform: ElementTransform;
+  labelStyle: LabelStyle;
 }
 
 function vinylKey(pairingId: string) { return `vinyl_data_${pairingId}`; }
+
+const DEFAULT_TRANSFORM: ElementTransform = { x: 0, y: 0, scale: 1, rotate: 0 };
+const DEFAULT_LABEL: LabelStyle = {
+  text: '', fontSize: 13, fontFamily: 'sans-serif', textAlign: 'center', color: '#ffffff',
+};
 
 const DEFAULT_VINYL: VinylData = {
   title: '', note: '', jacketCoverId: '', diskCoverId: '',
   patternTheme: 'radial', gradientColors: ['#1a1a2e', '#0f3460', '#16213e'],
   labelText: '', labelFontSize: 13, labelTextAlign: 'center',
+  jacketTransform: { ...DEFAULT_TRANSFORM },
+  diskTransform: { ...DEFAULT_TRANSFORM },
+  labelStyle: { ...DEFAULT_LABEL },
 };
+
+export { DEFAULT_TRANSFORM, DEFAULT_LABEL };
 
 export function getVinylData(pairingId: string): VinylData {
   try {
