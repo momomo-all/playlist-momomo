@@ -168,7 +168,7 @@ export default function PairingModal({ pairing, genres, defaultGenreId, initialT
       <div className="relative bg-[#161616] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
         {/* Header */}
         <div className="sticky top-0 bg-[#161616]/95 backdrop-blur-sm border-b border-white/5 px-6 py-4 flex items-center justify-between z-10">
-          <h2 className="text-white font-semibold">{pairing ? '페어링 수정' : '새 페어링 추가'}</h2>
+          <h2 className="text-white font-semibold">{pairing ? '페어 수정' : '새 페어 추가'}</h2>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/8 text-zinc-400 hover:text-white transition-all">
             <X className="w-4 h-4" />
           </button>
@@ -200,13 +200,13 @@ export default function PairingModal({ pairing, genres, defaultGenreId, initialT
             {/* Name & Genre */}
             <div className="flex-1 space-y-3">
               <div>
-                <label className="block text-zinc-400 text-xs font-medium mb-1">페어링 이름</label>
+                <label className="block text-zinc-400 text-xs font-medium mb-1">페어 이름</label>
                 <input
                   type="text"
                   value={name}
                   onChange={e => setName(e.target.value)}
                   className="w-full bg-[#1e1e1e] border border-white/8 rounded-xl px-3 py-2.5 text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-rose-500/50 transition-all"
-                  placeholder="예: 고죠 × 게토"
+                  placeholder="예: A x B"
                   required
                 />
               </div>
@@ -234,13 +234,13 @@ export default function PairingModal({ pairing, genres, defaultGenreId, initialT
               onChange={e => setDescription(e.target.value)}
               rows={2}
               className="w-full bg-[#1e1e1e] border border-white/8 rounded-xl px-3 py-2.5 text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-rose-500/50 transition-all resize-none"
-              placeholder="이 페어링에 대한 짧은 설명..."
+              placeholder="이 페어에 대한 짧은 설명..."
             />
           </div>
 
           {/* Character Tags */}
           <div>
-            <label className="block text-zinc-400 text-xs font-medium mb-1.5">캐릭터 태그</label>
+            <label className="block text-zinc-400 text-xs font-medium mb-1.5">페어 태그</label>
             <div className="flex gap-2 mb-2">
               <input
                 type="text"
