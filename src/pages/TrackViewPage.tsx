@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, Disc3, ExternalLink, Music2 } from 'lucide-react';
+import { ChevronLeft, Disc3, ExternalLink, Music2, ChevronUp, ChevronDown } from 'lucide-react';
 import { resolveCoverUrl } from '../lib/localDb';
 import { Pairing, Track } from '../lib/types';
 
@@ -21,13 +21,13 @@ function hexToRgb(hex: string) {
 export default function TrackViewPage({ pairing, tracks, initialTrackIndex, resolvedPairingCover, onBack, onOpenVinyl }: Props) {
   const [activeIdx, setActiveIdx] = useState(initialTrackIndex);
   const [trackCovers, setTrackCovers] = useState<Record<string, string>>({});
+  const [showTrackList, setShowTrackList] = useState(false);
   const lyricsRef = useRef<HTMLDivElement>(null);
 
   const track = tracks[activeIdx];
   const rgb = hexToRgb(pairing.theme_color || '#1a1a2e');
   const coverUrl = (track && trackCovers[track.id]) || resolvedPairingCover;
 
-  // resolve all track covers
   useEffect(() => {
     tracks.forEach(async t => {
       if (t.cover_id) {
@@ -37,181 +37,207 @@ export default function TrackViewPage({ pairing, tracks, initialTrackIndex, reso
     });
   }, [tracks]);
 
-  // scroll lyrics to top when track changes
   useEffect(() => {
     lyricsRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   }, [activeIdx]);
 
+  const goPrev = () => setActiveIdx(i => Math.max(0, i - 1));
+  const goNext = () => setActiveIdx(i => Math.min(tracks.length - 1, i + 1));
+
   if (!track) return null;
 
-  return (
-    <div className="fixed inset-0 overflow-hidden bg-[#0a0a0a]">
+  const hasLyrics = !!track.lyrics?.trim();
 
-      {/* ── Blurred background from track cover ── */}
-      <div className="absolute inset-0 transition-all duration-700">
+  return (
+    <div className="fixed inset-0 overflow-hidden" style={{ background: '#070709' }}>
+
+      {/* ── Full-screen blurred album art background ── */}
+      <div className="absolute inset-0 transition-all duration-1000">
         {coverUrl && (
           <img
             key={coverUrl}
             src={coverUrl}
             alt=""
             className="absolute inset-0 w-full h-full object-cover"
-            style={{ filter: 'blur(100px)', transform: 'scale(1.25)', opacity: 0.85 }}
+            style={{ filter: 'blur(120px)', transform: 'scale(1.4)', opacity: 0.75 }}
           />
         )}
-        <div className="absolute inset-0" style={{ background: 'rgba(6,6,8,0.58)' }} />
+        {/* deep dark overlay */}
+        <div className="absolute inset-0" style={{ background: 'rgba(5,5,8,0.68)' }} />
+        {/* vignette */}
         <div className="absolute inset-0" style={{
-          background: 'radial-gradient(ellipse at 30% 60%, transparent 25%, rgba(0,0,0,0.65) 100%)',
+          background: 'radial-gradient(ellipse at 40% 40%, transparent 20%, rgba(0,0,0,0.72) 100%)',
+        }} />
+        {/* bottom fade for lyrics readability */}
+        <div className="absolute bottom-0 left-0 right-0 h-48" style={{
+          background: 'linear-gradient(to top, rgba(5,5,8,0.95) 0%, transparent 100%)',
         }} />
       </div>
 
-      {/* ── Floating blobs ── */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute w-[600px] h-[600px] rounded-full blur-3xl opacity-20 animate-blob1"
-          style={{ background: pairing.theme_color, top: '-15%', right: '-10%' }} />
-        <div className="absolute w-[400px] h-[400px] rounded-full blur-3xl opacity-12 animate-blob2"
-          style={{ background: pairing.theme_color, bottom: '-10%', left: '-5%' }} />
-      </div>
-
-      {/* ── Top navigation ── */}
-      <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between px-8 pt-7">
+      {/* ── Top nav ── */}
+      <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between px-7 pt-7">
         <button onClick={onBack}
-          className="group flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-black/35 hover:bg-black/55 border border-white/12 hover:border-white/25 text-white backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95">
-          <ChevronLeft className="w-4 h-4 text-white/60 group-hover:text-white transition-colors" />
-          <span className="text-sm font-semibold truncate max-w-[160px]">{pairing.name}</span>
+          className="group flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-black/35 hover:bg-black/55 border border-white/10 hover:border-white/22 text-white backdrop-blur-xl transition-all hover:scale-[1.02] active:scale-95">
+          <ChevronLeft className="w-4 h-4 text-white/55 group-hover:text-white transition-colors" />
+          <span className="text-sm font-semibold">{pairing.name}</span>
         </button>
 
-        <button
-          onClick={onOpenVinyl}
-          className="flex items-center gap-2.5 px-5 py-2.5 rounded-2xl text-white text-sm font-bold border transition-all hover:scale-[1.02] active:scale-95 backdrop-blur-md"
-          style={{
-            background: `rgba(${rgb},0.28)`,
-            borderColor: `rgba(${rgb},0.55)`,
-            boxShadow: `0 0 28px rgba(${rgb},0.25)`,
-          }}
-        >
-          <Disc3 className="w-4 h-4" style={{ animation: 'vinyl-spin 3s linear infinite' }} />
-          바이닐 모드
-        </button>
+        <div className="flex items-center gap-2.5">
+          {tracks.length > 1 && (
+            <button
+              onClick={() => setShowTrackList(v => !v)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-sm font-semibold border backdrop-blur-xl transition-all hover:scale-[1.02] active:scale-95"
+              style={showTrackList
+                ? { background: `rgba(${rgb},0.35)`, borderColor: `rgba(${rgb},0.6)` }
+                : { background: 'rgba(0,0,0,0.35)', borderColor: 'rgba(255,255,255,0.10)' }}>
+              <Music2 className="w-4 h-4" />
+              트랙 목록
+            </button>
+          )}
+          <button
+            onClick={onOpenVinyl}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white text-sm font-bold border backdrop-blur-xl transition-all hover:scale-[1.02] active:scale-95"
+            style={{
+              background: `rgba(${rgb},0.28)`,
+              borderColor: `rgba(${rgb},0.55)`,
+              boxShadow: `0 0 22px rgba(${rgb},0.22)`,
+            }}>
+            <Disc3 className="w-4 h-4" style={{ animation: 'vinyl-spin 3s linear infinite' }} />
+            바이닐 모드
+          </button>
+        </div>
       </div>
 
-      {/* ── Main two-column layout ── */}
-      <div className="relative z-20 flex h-full" style={{ paddingTop: 76, paddingBottom: 16 }}>
+      {/* ── Track list dropdown overlay ── */}
+      {showTrackList && (
+        <div
+          className="absolute top-[72px] right-7 z-50 rounded-2xl overflow-hidden border border-white/10 backdrop-blur-2xl"
+          style={{ background: 'rgba(10,10,14,0.92)', minWidth: 240, maxHeight: 360, overflowY: 'auto' }}>
+          {tracks.map((t, i) => {
+            const tCover = trackCovers[t.id] || resolvedPairingCover;
+            return (
+              <button
+                key={t.id}
+                onClick={() => { setActiveIdx(i); setShowTrackList(false); }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left transition-all"
+                style={{
+                  background: i === activeIdx ? `rgba(${rgb},0.28)` : 'transparent',
+                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                }}>
+                <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0">
+                  {tCover
+                    ? <img src={tCover} alt="" className="w-full h-full object-cover" />
+                    : <div className="w-full h-full" style={{ background: pairing.theme_color }} />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-semibold truncate ${i === activeIdx ? 'text-white' : 'text-white/60'}`}>{t.title}</p>
+                  <p className="text-white/30 text-xs">{i + 1} / {tracks.length}</p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
-        {/* ═══ LEFT COLUMN ═══ */}
-        <div className="flex flex-col items-center justify-center flex-shrink-0 px-8"
-          style={{ width: 'clamp(380px, 42vw, 520px)' }}>
+      {/* ── Main content ── */}
+      <div className="relative z-20 flex h-full" style={{ paddingTop: 80, paddingBottom: 24 }}>
 
-          {/* Album jacket — bare image, no wrapper box */}
-          <div className="mb-7 flex-shrink-0" style={{ width: 420 }}>
+        {/* LEFT: cover + track info */}
+        <div className="flex flex-col items-center justify-center flex-shrink-0 select-none"
+          style={{ width: 'clamp(280px, 34vw, 420px)', padding: '0 32px' }}>
+
+          {/* bare album cover */}
+          <div className="w-full mb-8" style={{ maxWidth: 340 }}>
             {coverUrl
-              ? <img src={coverUrl} alt={track.title}
-                  className="w-full rounded-3xl object-cover transition-opacity duration-500"
-                  style={{ aspectRatio: '1', display: 'block' }} />
-              : (
-                <div className="w-full rounded-3xl flex items-center justify-center"
+              ? <img
+                  key={coverUrl}
+                  src={coverUrl}
+                  alt={track.title}
+                  className="w-full rounded-3xl object-cover"
+                  style={{
+                    aspectRatio: '1',
+                    display: 'block',
+                    boxShadow: `0 32px 80px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06)`,
+                    transition: 'opacity 0.5s',
+                  }} />
+              : <div className="w-full rounded-3xl flex items-center justify-center"
                   style={{ aspectRatio: '1', background: pairing.theme_color }}>
                   <Music2 className="w-20 h-20 text-white/20" />
                 </div>
-              )
             }
           </div>
 
-          {/* Track title + meta */}
-          <div className="w-full text-left px-1" style={{ width: 420 }}>
-            <h1 className="text-white font-bold leading-tight mb-1.5"
-              style={{ fontSize: 'clamp(20px, 2.4vw, 30px)' }}>
+          {/* track title + meta */}
+          <div className="w-full text-left" style={{ maxWidth: 340 }}>
+            <h2 className="text-white font-bold leading-tight mb-2"
+              style={{ fontSize: 'clamp(20px, 2.6vw, 32px)' }}>
               {track.title}
-            </h1>
+            </h2>
             {track.description && (
-              <p className="text-white/50 text-sm leading-relaxed mb-3">{track.description}</p>
+              <p className="text-white/45 text-sm leading-relaxed mb-4">{track.description}</p>
             )}
 
-            {/* Media controls mock bar */}
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center justify-between text-white/30 text-xs">
-                <span>0:00</span>
-                <span>—:——</span>
-              </div>
-              <div className="w-full h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.12)' }}>
-                <div className="h-full rounded-full w-0 transition-all"
-                  style={{ background: pairing.theme_color, boxShadow: `0 0 8px rgba(${rgb},0.8)` }} />
-              </div>
-              <div className="flex items-center justify-between mt-1">
-                <div className="flex items-center gap-3">
-                  {track.youtube_url && (
-                    <a href={track.youtube_url} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-[1.04] active:scale-95"
-                      style={{
-                        background: 'rgba(239,68,68,0.18)',
-                        border: '1px solid rgba(239,68,68,0.35)',
-                        color: '#f87171',
-                      }}>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      YouTube
-                    </a>
-                  )}
-                </div>
-                <span className="text-white/25 text-xs">{activeIdx + 1} / {tracks.length}</span>
-              </div>
+            {/* youtube + counter */}
+            <div className="flex items-center gap-3 mt-4">
+              {track.youtube_url && (
+                <a href={track.youtube_url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all hover:scale-[1.04] active:scale-95"
+                  style={{ background: 'rgba(239,68,68,0.18)', border: '1px solid rgba(239,68,68,0.32)', color: '#f87171' }}>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  YouTube
+                </a>
+              )}
+              <span className="text-white/25 text-xs ml-auto">{activeIdx + 1} / {tracks.length}</span>
             </div>
+
+            {/* prev / next */}
+            {tracks.length > 1 && (
+              <div className="flex gap-2 mt-5">
+                <button
+                  onClick={goPrev}
+                  disabled={activeIdx === 0}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold border transition-all disabled:opacity-30 hover:enabled:scale-[1.02] active:enabled:scale-95"
+                  style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
+                  <ChevronUp className="w-3.5 h-3.5" /> 이전 곡
+                </button>
+                <button
+                  onClick={goNext}
+                  disabled={activeIdx === tracks.length - 1}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold border transition-all disabled:opacity-30 hover:enabled:scale-[1.02] active:enabled:scale-95"
+                  style={{ background: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
+                  다음 곡 <ChevronDown className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* ═══ RIGHT COLUMN: Lyrics ═══ */}
-        <div className="flex-1 flex flex-col min-w-0 pr-10 overflow-hidden">
-          {/* Track list pills (top) */}
-          <div className="flex-shrink-0 flex gap-2 overflow-x-auto pb-3 mb-4 scrollbar-none"
-            style={{ scrollbarWidth: 'none' }}>
-            {tracks.map((t, i) => {
-              const tCover = trackCovers[t.id];
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => setActiveIdx(i)}
-                  className="flex-shrink-0 flex items-center gap-2.5 px-3.5 py-2 rounded-2xl border transition-all hover:scale-[1.02] active:scale-95 text-left"
-                  style={{
-                    background: i === activeIdx ? `rgba(${rgb},0.35)` : 'rgba(255,255,255,0.05)',
-                    borderColor: i === activeIdx ? `rgba(${rgb},0.65)` : 'rgba(255,255,255,0.1)',
-                    boxShadow: i === activeIdx ? `0 0 16px rgba(${rgb},0.3)` : 'none',
-                  }}
-                >
-                  <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 border border-white/10"
-                    style={{ background: pairing.theme_color }}>
-                    {tCover
-                      ? <img src={tCover} alt="" className="w-full h-full object-cover" />
-                      : <div className="w-full h-full flex items-center justify-center">
-                          <Music2 className="w-3.5 h-3.5 text-white/30" />
-                        </div>
-                    }
-                  </div>
-                  <div>
-                    <p className={`text-xs font-semibold truncate max-w-[120px] ${i === activeIdx ? 'text-white' : 'text-white/55'}`}>
-                      {t.title}
-                    </p>
-                    <p className="text-white/25 text-[10px]">{i + 1}</p>
-                  </div>
-                </button>
-              );
-            })}
+        {/* RIGHT: lyrics / log */}
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden" style={{ paddingRight: 48 }}>
+
+          {/* section label */}
+          <div className="flex-shrink-0 mb-6">
+            <p className="text-white/25 text-xs uppercase tracking-[0.22em]">
+              {hasLyrics ? '가 사' : '로 그'}
+            </p>
+            <div className="mt-2 h-px" style={{ background: `rgba(${rgb},0.35)` }} />
           </div>
 
-          {/* Lyrics / log body */}
-          <div ref={lyricsRef} className="flex-1 overflow-y-auto pr-2"
-            style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent' }}>
-            {track.lyrics ? (
-              <div className="py-2">
-                <p className="text-white/75 leading-[2.1] whitespace-pre-wrap"
-                  style={{ fontSize: 'clamp(15px, 1.6vw, 19px)' }}>
-                  {track.lyrics}
-                </p>
-              </div>
+          {/* lyrics body */}
+          <div
+            ref={lyricsRef}
+            className="flex-1 overflow-y-auto"
+            style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.07) transparent' }}>
+            {hasLyrics ? (
+              <p
+                className="text-white/85 whitespace-pre-wrap leading-[2.2] tracking-wide"
+                style={{ fontSize: 'clamp(17px, 1.8vw, 22px)', fontFamily: '"Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif' }}>
+                {track.lyrics}
+              </p>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full gap-4 opacity-40">
-                <Music2 className="w-12 h-12 text-white/25" />
-                <p className="text-white/35 text-sm text-center">
-                  가사가 없습니다.<br />
-                  <span className="text-xs text-white/20">편집 메뉴에서 가사를 추가해보세요.</span>
-                </p>
+              <div className="flex flex-col items-start justify-center h-full gap-3 pt-8">
+                <p className="text-white/20 text-lg font-light">가사가 없습니다.</p>
+                <p className="text-white/12 text-sm">편집 메뉴에서 가사를 추가하거나,<br/>바이닐 모드에서 로그를 작성해보세요.</p>
               </div>
             )}
           </div>
