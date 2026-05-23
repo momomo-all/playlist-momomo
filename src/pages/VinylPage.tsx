@@ -205,8 +205,9 @@ export default function VinylPage({ pairing, track, resolvedCover, onBack }: Pro
   const [exporting,   setExporting]   = useState(false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft,   setTitleDraft]   = useState('');
-  const [jacketOff,   setJacketOff]   = useState({ x: 0, y: 0 });
-  const [diskOff,     setDiskOff]     = useState({ x: 0, y: 0 });
+  const [jacketOff,    setJacketOff]    = useState({ x: 0, y: 0 });
+  const [diskOff,      setDiskOff]      = useState({ x: 0, y: 0 });
+  const [panelOff,     setPanelOff]     = useState({ x: 0, y: 0 });
 
   const jacketInputRef = useRef<HTMLInputElement>(null);
   const sceneRef       = useRef<HTMLDivElement>(null);
@@ -299,9 +300,14 @@ export default function VinylPage({ pairing, track, resolvedCover, onBack }: Pro
     });
   }, [pairing.id]));
 
+  const panelDragEnabled = !editingLog && !editingTitle && !showCustom;
+  const panelDrag = useDrag(panelDragEnabled, useCallback((dx, dy) => {
+    setPanelOff(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+  }, []));
+
   const rgb = hexToRgb(pairing.theme_color || '#1a1a2e');
   const bgImg = jacketUrl || resolvedCover;
-  const displayTitle = track ? track.title : (vd.title || pairing.name);
+  const displayTitle = vd.title || (track ? track.title : pairing.name);
   const diskGradient = buildGradient(vd.gradientColors, vd.patternTheme);
   const ls = vd.labelStyle;
   const hasNote = !!vd.note?.trim();
@@ -478,6 +484,13 @@ export default function VinylPage({ pairing, track, resolvedCover, onBack }: Pro
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden"
           style={{ paddingRight: showCustom || showLog ? 0 : 40, paddingTop: 8, transition: 'padding 0.4s' }}>
 
+          {/* draggable wrapper for title + content (not custom panel) */}
+          <div
+            className={`flex flex-col flex-1 min-h-0 ${panelDragEnabled ? 'cursor-grab active:cursor-grabbing' : ''}`}
+            style={{ transform: `translate(${showCustom ? 0 : panelOff.x}px, ${showCustom ? 0 : panelOff.y}px)`, userSelect: 'none' }}
+            {...panelDrag}
+          >
+
           {/* ── title block ── */}
           <div className={`flex-shrink-0 transition-all duration-500 ${showLog ? 'mb-2' : 'mb-5'}`}>
             <p className="text-white/30 text-xs uppercase tracking-[0.2em] mb-1">Now Playing</p>
@@ -505,7 +518,7 @@ export default function VinylPage({ pairing, track, resolvedCover, onBack }: Pro
               </form>
             ) : (
               <div className="group flex items-center gap-2 cursor-pointer"
-                onClick={() => { setTitleDraft(vd.title || displayTitle); setEditingTitle(true); }}>
+                onClick={() => { setTitleDraft(displayTitle); setEditingTitle(true); }}>
                 <h1 className="text-white font-bold tracking-tight leading-tight"
                   style={{ fontSize: showLog ? '1.1rem' : 'clamp(18px, 2.5vw, 32px)' }}>
                   {displayTitle}
@@ -619,6 +632,8 @@ export default function VinylPage({ pairing, track, resolvedCover, onBack }: Pro
               )}
             </div>
           )}
+
+          </div>{/* end draggable wrapper */}
         </div>
       </div>
 
@@ -823,3 +838,6 @@ function SliderRow({ icon, label, min, max, step = 1, value, onChange, unit = ''
     </div>
   );
 }
+
+
+export default VinylPage
