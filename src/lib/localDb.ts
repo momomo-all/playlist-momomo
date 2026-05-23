@@ -190,14 +190,37 @@ export async function deleteCover(id: string): Promise<void> {
   await tx('covers', 'readwrite', s => s.delete(id));
 }
 
-// ─── Vinyl Notes (localStorage) ────────────────────────
+// ─── Vinyl Data (localStorage) ─────────────────────────
 
+export interface VinylData {
+  title: string;
+  note: string;
+  jacketCoverId: string;   // local-cover:// id for jacket image
+  diskCoverId: string;     // local-cover:// id for disk label image
+}
+
+function vinylKey(pairingId: string) { return `vinyl_data_${pairingId}`; }
+
+export function getVinylData(pairingId: string): VinylData {
+  try {
+    const raw = localStorage.getItem(vinylKey(pairingId));
+    if (raw) return JSON.parse(raw) as VinylData;
+  } catch { /* ignore */ }
+  return { title: '', note: '', jacketCoverId: '', diskCoverId: '' };
+}
+
+export function saveVinylData(pairingId: string, data: VinylData): void {
+  localStorage.setItem(vinylKey(pairingId), JSON.stringify(data));
+}
+
+// Legacy aliases kept for backward compat
 export function getVinylNote(pairingId: string): string {
-  return localStorage.getItem(`vinyl_note_${pairingId}`) ?? '';
+  return getVinylData(pairingId).note;
 }
 
 export function saveVinylNote(pairingId: string, text: string): void {
-  localStorage.setItem(`vinyl_note_${pairingId}`, text);
+  const existing = getVinylData(pairingId);
+  saveVinylData(pairingId, { ...existing, note: text });
 }
 
 // ─── Cover URL cache ────────────────────────────────────
