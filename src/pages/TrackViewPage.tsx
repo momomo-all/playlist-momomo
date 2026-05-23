@@ -140,14 +140,14 @@ export default function TrackViewPage({ pairing, tracks, initialTrackIndex, reso
       )}
 
       {/* ── Main content ── */}
-      <div className="relative z-20 flex h-full" style={{ paddingTop: 80, paddingBottom: 24 }}>
+      <div className="relative z-20 flex h-full items-stretch justify-center" style={{ paddingTop: 80, paddingBottom: 24 }}>
 
         {/* LEFT: cover + track info */}
         <div className="flex flex-col items-center justify-center flex-shrink-0 select-none"
-          style={{ width: 'clamp(260px, 28vw, 360px)', padding: '0 28px 0 40px' }}>
+          style={{ width: 'clamp(320px, 36vw, 480px)', padding: '0 40px 0 48px' }}>
 
           {/* bare album cover */}
-          <div className="w-full mb-8" style={{ maxWidth: 340 }}>
+          <div className="w-full mb-8">
             {coverUrl
               ? <img
                   key={coverUrl}
@@ -157,21 +157,21 @@ export default function TrackViewPage({ pairing, tracks, initialTrackIndex, reso
                   style={{
                     aspectRatio: '1',
                     display: 'block',
-                    boxShadow: `0 32px 80px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06)`,
+                    boxShadow: `0 40px 100px rgba(0,0,0,0.80), 0 0 0 1px rgba(255,255,255,0.06)`,
                     transition: 'opacity 0.5s',
                   }} />
               : <div className="w-full rounded-3xl flex items-center justify-center"
                   style={{ aspectRatio: '1', background: pairing.theme_color }}>
-                  <Music2 className="w-20 h-20 text-white/20" />
+                  <Music2 className="w-24 h-24 text-white/20" />
                 </div>
             }
           </div>
 
           {/* track title + meta */}
-          <div className="w-full text-left" style={{ maxWidth: 340 }}>
+          <div className="w-full text-left">
             <h2 className="text-white mb-2" style={{
               fontFamily: '"Noto Sans KR", "Apple SD Gothic Neo", -apple-system, sans-serif',
-              fontSize: 'clamp(20px, 2.4vw, 28px)',
+              fontSize: 'clamp(22px, 2.6vw, 32px)',
               fontWeight: 900,
               lineHeight: 1.25,
               letterSpacing: '-0.02em',
@@ -225,7 +225,7 @@ export default function TrackViewPage({ pairing, tracks, initialTrackIndex, reso
         </div>
 
         {/* RIGHT: lyrics / log */}
-        <div className="flex-1 min-w-0 flex flex-col overflow-hidden" style={{ paddingLeft: 40, paddingRight: 64 }}>
+        <div className="flex flex-col overflow-hidden" style={{ width: 'clamp(320px, 44vw, 600px)', paddingLeft: 48, paddingRight: 48 }}>
 
           {/* section label */}
           <div className="flex-shrink-0 mb-8">
@@ -291,3 +291,6 @@ export default function TrackViewPage({ pairing, tracks, initialTrackIndex, reso
     </div>
   );
 }
+
+
+export default TrackViewPage
