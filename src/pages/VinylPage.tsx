@@ -203,6 +203,8 @@ export default function VinylPage({ pairing, track, resolvedCover, onBack }: Pro
   const [editingLog,  setEditingLog]  = useState(false);
   const [logDraft,    setLogDraft]    = useState('');
   const [exporting,   setExporting]   = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft,   setTitleDraft]   = useState('');
   const [jacketOff,   setJacketOff]   = useState({ x: 0, y: 0 });
   const [diskOff,     setDiskOff]     = useState({ x: 0, y: 0 });
 
@@ -479,10 +481,38 @@ export default function VinylPage({ pairing, track, resolvedCover, onBack }: Pro
           {/* ── title block ── */}
           <div className={`flex-shrink-0 transition-all duration-500 ${showLog ? 'mb-2' : 'mb-5'}`}>
             <p className="text-white/30 text-xs uppercase tracking-[0.2em] mb-1">Now Playing</p>
-            <h1 className="text-white font-bold tracking-tight leading-tight"
-              style={{ fontSize: showLog ? '1.1rem' : 'clamp(18px, 2.5vw, 32px)' }}>
-              {displayTitle}
-            </h1>
+            {editingTitle ? (
+              <form
+                onSubmit={e => {
+                  e.preventDefault();
+                  update({ title: titleDraft });
+                  setEditingTitle(false);
+                }}
+                className="flex items-center gap-2">
+                <input
+                  autoFocus
+                  value={titleDraft}
+                  onChange={e => setTitleDraft(e.target.value)}
+                  onBlur={() => { update({ title: titleDraft }); setEditingTitle(false); }}
+                  onKeyDown={e => e.key === 'Escape' && setEditingTitle(false)}
+                  className="flex-1 bg-transparent border-b text-white font-bold tracking-tight leading-tight focus:outline-none"
+                  style={{
+                    fontSize: showLog ? '1.1rem' : 'clamp(18px, 2.5vw, 32px)',
+                    borderColor: `rgba(${rgb},0.6)`,
+                    caretColor: pairing.theme_color,
+                  }}
+                />
+              </form>
+            ) : (
+              <div className="group flex items-center gap-2 cursor-pointer"
+                onClick={() => { setTitleDraft(vd.title || displayTitle); setEditingTitle(true); }}>
+                <h1 className="text-white font-bold tracking-tight leading-tight"
+                  style={{ fontSize: showLog ? '1.1rem' : 'clamp(18px, 2.5vw, 32px)' }}>
+                  {displayTitle}
+                </h1>
+                <Pencil className="w-3.5 h-3.5 text-white/0 group-hover:text-white/35 transition-colors flex-shrink-0" />
+              </div>
+            )}
           </div>
 
           {/* ── CUSTOM PANEL ── */}
@@ -625,18 +655,6 @@ function CustomPanel({ vd, update, updateJacket, updateDisk, rgb, onJacketUpload
 
   return (
     <>
-      {/* display title */}
-      <div>
-        <SectionTitle>NOW PLAYING 제목</SectionTitle>
-        <input
-          type="text"
-          value={vd.title}
-          onChange={e => update({ title: e.target.value })}
-          placeholder="비우면 곡 제목 또는 페어링 이름 표시"
-          className="w-full bg-white/5 border border-white/8 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-white/22 placeholder-white/18"
-        />
-      </div>
-
       {/* pattern themes */}
       <div>
         <SectionTitle>패턴 테마</SectionTitle>
@@ -805,3 +823,6 @@ function SliderRow({ icon, label, min, max, step = 1, value, onChange, unit = ''
     </div>
   );
 }
+
+
+export default VinylPage
