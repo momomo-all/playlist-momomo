@@ -823,6 +823,3 @@ function SliderRow({ icon, label, min, max, step = 1, value, onChange, unit = ''
     </div>
   );
 }
-
-
-export default VinylPage
