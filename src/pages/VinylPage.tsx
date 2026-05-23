@@ -186,7 +186,7 @@ interface Props {
   onBack: () => void;
 }
 
-export default function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
+function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
   const [vd, setVd] = useState<VinylData>(() => {
     const d = getVinylData(pairing.id);
     return {
@@ -839,5 +839,7 @@ function SliderRow({ icon, label, min, max, step = 1, value, onChange, unit = ''
   );
 }
 
+
+export default VinylPage
 
 export default VinylPage
