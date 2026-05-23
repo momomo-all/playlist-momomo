@@ -53,7 +53,7 @@ export default function GenrePage({ genre, onBack, onSelectPairing }: Props) {
   };
 
   const handleDeletePairing = async (id: string) => {
-    if (!confirm('이 페어링을 삭제할까요?')) return;
+    if (!confirm('이 페어를 삭제할까요?')) return;
     await removePairing(id);
     loadPairings();
     setMenuId(null);
@@ -85,13 +85,13 @@ export default function GenrePage({ genre, onBack, onSelectPairing }: Props) {
           className="flex items-center gap-1.5 bg-rose-500 hover:bg-rose-400 text-white text-sm font-medium px-3.5 py-2 rounded-xl transition-all shadow-lg shadow-rose-500/20"
         >
           <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">페어링 추가</span>
+          <span className="hidden sm:inline">페어 추가</span>
         </button>
       }
     >
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white tracking-tight mb-1">{genre.name}</h1>
-        <p className="text-zinc-500 text-sm">{pairings.length}개의 페어링</p>
+        <p className="text-zinc-500 text-sm">{pairings.length}개의 페어</p>
       </div>
 
       {/* Search + Filter */}
@@ -103,7 +103,7 @@ export default function GenrePage({ genre, onBack, onSelectPairing }: Props) {
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="w-full bg-[#141414] border border-white/8 rounded-xl pl-10 pr-4 py-2.5 text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-rose-500/40 transition-all"
-            placeholder="페어링 또는 캐릭터 검색..."
+            placeholder="페어 또는 캐릭터 검색..."
           />
         </div>
         <button
@@ -131,10 +131,10 @@ export default function GenrePage({ genre, onBack, onSelectPairing }: Props) {
             <Music2 className="w-8 h-8 text-zinc-600" />
           </div>
           <p className="text-zinc-400 font-medium mb-1">
-            {search || favoritesOnly ? '검색 결과가 없습니다' : '아직 페어링이 없습니다'}
+            {search || favoritesOnly ? '검색 결과가 없습니다' : '아직 페어가 없습니다'}
           </p>
           <p className="text-zinc-600 text-sm">
-            {!search && !favoritesOnly && '"페어링 추가" 버튼으로 시작해보세요'}
+            {!search && !favoritesOnly && '"페어 추가" 버튼으로 시작해보세요'}
           </p>
         </div>
       ) : (

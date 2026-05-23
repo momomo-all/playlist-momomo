@@ -36,7 +36,7 @@ export default function MainPage({ onSelectGenre }: Props) {
   useEffect(() => { loadGenres(); }, [loadGenres]);
 
   const handleDeleteGenre = async (id: string) => {
-    if (!confirm('이 장르와 모든 페어링을 삭제할까요?')) return;
+    if (!confirm('이 장르와 모든 페어를 삭제할까요?')) return;
     await removeGenre(id);
     loadGenres();
     setMenuGenreId(null);
@@ -63,7 +63,7 @@ export default function MainPage({ onSelectGenre }: Props) {
       {/* Hero */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white tracking-tight mb-1">나의 라이브러리</h1>
-        <p className="text-zinc-500 text-sm">{genres.length}개의 장르 · 나만의 드림 페어링 아카이브</p>
+        <p className="text-zinc-500 text-sm">{genres.length}개의 장르</p>
       </div>
 
       {/* Search + Filter */}
@@ -123,7 +123,7 @@ export default function MainPage({ onSelectGenre }: Props) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-white font-medium text-sm">{genre.name}</p>
-                <p className="text-zinc-500 text-xs">{genre.pairing_count || 0}개의 페어링</p>
+                <p className="text-zinc-500 text-xs">{genre.pairing_count || 0}개의 페어</p>
               </div>
               {favGenreIds.has(genre.id) && (
                 <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 flex-shrink-0" />

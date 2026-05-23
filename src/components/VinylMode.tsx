@@ -236,7 +236,7 @@ export default function VinylMode({ pairing, coverUrl, onClose }: Props) {
               onChange={e => setNoteText(e.target.value)}
               className="w-full bg-transparent px-4 py-4 text-white/80 text-sm leading-relaxed resize-none focus:outline-none placeholder-white/20"
               rows={12}
-              placeholder={"이 페어링을 위한 대화 로그, 가사, 또는 메모를 자유롭게 남겨보세요...\n\n브라우저에만 저장되며 외부로 공유되지 않습니다."}
+              placeholder={"이 페어를 위한 대화 로그, 가사, 또는 메모를 자유롭게 남겨보세요...\n\n브라우저에만 저장되며 외부로 공유되지 않습니다."}
             />
             <div className="px-4 py-3 border-t border-white/5 flex items-center justify-between">
               <span className="text-white/25 text-xs">자켓 이미지를 클릭하면 노트 미리보기</span>
