@@ -169,12 +169,24 @@ export default function TrackViewPage({ pairing, tracks, initialTrackIndex, reso
 
           {/* track title + meta */}
           <div className="w-full text-left" style={{ maxWidth: 340 }}>
-            <h2 className="text-white font-bold leading-tight mb-2"
-              style={{ fontSize: 'clamp(20px, 2.6vw, 32px)' }}>
+            <h2 className="text-white mb-2" style={{
+              fontFamily: '"Noto Sans KR", "Apple SD Gothic Neo", -apple-system, sans-serif',
+              fontSize: 'clamp(20px, 2.4vw, 28px)',
+              fontWeight: 900,
+              lineHeight: 1.25,
+              letterSpacing: '-0.02em',
+              wordBreak: 'keep-all',
+            }}>
               {track.title}
             </h2>
             {track.description && (
-              <p className="text-white/45 text-sm leading-relaxed mb-4">{track.description}</p>
+              <p className="mb-4" style={{
+                fontFamily: '"Noto Sans KR", -apple-system, sans-serif',
+                fontSize: 13,
+                fontWeight: 400,
+                color: 'rgba(255,255,255,0.42)',
+                lineHeight: 1.6,
+              }}>{track.description}</p>
             )}
 
             {/* youtube + counter */}
@@ -216,28 +228,61 @@ export default function TrackViewPage({ pairing, tracks, initialTrackIndex, reso
         <div className="flex-1 min-w-0 flex flex-col overflow-hidden" style={{ paddingRight: 48 }}>
 
           {/* section label */}
-          <div className="flex-shrink-0 mb-6">
-            <p className="text-white/25 text-xs uppercase tracking-[0.22em]">
-              {hasLyrics ? '가 사' : '로 그'}
+          <div className="flex-shrink-0 mb-8">
+            <p style={{
+              fontFamily: '"Noto Sans KR", "Apple SD Gothic Neo", -apple-system, sans-serif',
+              fontSize: 11,
+              fontWeight: 500,
+              letterSpacing: '0.22em',
+              color: 'rgba(255,255,255,0.28)',
+              textTransform: 'uppercase',
+            }}>
+              {hasLyrics ? 'Lyrics' : 'Log'}
             </p>
-            <div className="mt-2 h-px" style={{ background: `rgba(${rgb},0.35)` }} />
+            <div className="mt-2.5 h-px" style={{ background: `rgba(${rgb},0.3)` }} />
           </div>
 
           {/* lyrics body */}
           <div
             ref={lyricsRef}
             className="flex-1 overflow-y-auto"
-            style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.07) transparent' }}>
+            style={{ scrollbarWidth: 'none' }}>
             {hasLyrics ? (
-              <p
-                className="text-white/85 whitespace-pre-wrap leading-[2.2] tracking-wide"
-                style={{ fontSize: 'clamp(17px, 1.8vw, 22px)', fontFamily: '"Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif' }}>
-                {track.lyrics}
-              </p>
+              <div className="pb-16">
+                {track.lyrics!.split('\n').map((line, i) => (
+                  <p
+                    key={i}
+                    style={{
+                      fontFamily: '"Noto Sans KR", "Apple SD Gothic Neo", -apple-system, sans-serif',
+                      fontSize: 'clamp(22px, 2.2vw, 30px)',
+                      fontWeight: 700,
+                      lineHeight: 1.65,
+                      letterSpacing: '-0.01em',
+                      color: line.trim() === '' ? 'transparent' : 'rgba(255,255,255,0.88)',
+                      marginBottom: line.trim() === '' ? '0.6em' : 0,
+                      transition: 'color 0.3s',
+                      wordBreak: 'keep-all',
+                      overflowWrap: 'break-word',
+                    }}>
+                    {line || '\u00A0'}
+                  </p>
+                ))}
+              </div>
             ) : (
               <div className="flex flex-col items-start justify-center h-full gap-3 pt-8">
-                <p className="text-white/20 text-lg font-light">가사가 없습니다.</p>
-                <p className="text-white/12 text-sm">편집 메뉴에서 가사를 추가하거나,<br/>바이닐 모드에서 로그를 작성해보세요.</p>
+                <p style={{
+                  fontFamily: '"Noto Sans KR", -apple-system, sans-serif',
+                  fontSize: 20,
+                  fontWeight: 700,
+                  color: 'rgba(255,255,255,0.18)',
+                }}>가사가 없습니다.</p>
+                <p style={{
+                  fontFamily: '"Noto Sans KR", -apple-system, sans-serif',
+                  fontSize: 14,
+                  fontWeight: 400,
+                  color: 'rgba(255,255,255,0.10)',
+                  lineHeight: 1.7,
+                }}>편집 메뉴에서 가사를 추가하거나,<br/>바이닐 모드에서 로그를 작성해보세요.</p>
               </div>
             )}
           </div>
