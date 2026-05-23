@@ -204,12 +204,14 @@ export default function VinylPage({ pairing, track, resolvedCover, onBack }: Pro
   const [logDraft,    setLogDraft]    = useState('');
   const [exporting,   setExporting]   = useState(false);
   const [jacketOff,   setJacketOff]   = useState({ x: 0, y: 0 });
+  const [diskOff,     setDiskOff]     = useState({ x: 0, y: 0 });
 
   const jacketInputRef = useRef<HTMLInputElement>(null);
   const sceneRef       = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setJacketOff({ x: vd.jacketTransform.x, y: vd.jacketTransform.y });
+    setDiskOff({ x: vd.diskTransform.x, y: vd.diskTransform.y });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pairing.id]);
 
@@ -276,6 +278,18 @@ export default function VinylPage({ pairing, track, resolvedCover, onBack }: Pro
       const next = { x: prev.x + dx, y: prev.y + dy };
       setVd(v => {
         const updated = { ...v, jacketTransform: { ...v.jacketTransform, x: next.x, y: next.y } };
+        saveVinylData(pairing.id, updated);
+        return updated;
+      });
+      return next;
+    });
+  }, [pairing.id]));
+
+  const diskDrag = useDrag(true, useCallback((dx, dy) => {
+    setDiskOff(prev => {
+      const next = { x: prev.x + dx, y: prev.y + dy };
+      setVd(v => {
+        const updated = { ...v, diskTransform: { ...v.diskTransform, x: next.x, y: next.y } };
         saveVinylData(pairing.id, updated);
         return updated;
       });
@@ -405,13 +419,16 @@ export default function VinylPage({ pairing, track, resolvedCover, onBack }: Pro
             </div>
 
             {/* LP DISC */}
-            <div className="absolute"
+            <div className="absolute cursor-grab active:cursor-grabbing"
               style={{
                 width: '65%', aspectRatio: '1',
                 right: '0%', top: '50%', zIndex: 3,
-                transform: `translateY(-50%) translate(${vd.diskTransform.x}px, ${vd.diskTransform.y}px) scale(${vd.diskTransform.scale}) rotate(${vd.diskTransform.rotate}deg)`,
-                transition: 'all 0.5s ease',
-              }}>
+                transform: `translateY(-50%) translate(${diskOff.x}px, ${diskOff.y}px) scale(${vd.diskTransform.scale}) rotate(${vd.diskTransform.rotate}deg)`,
+                transition: 'width 0.5s ease, right 0.5s ease',
+                userSelect: 'none',
+              }}
+              {...diskDrag}
+            >
               <div className="w-full h-full rounded-full relative overflow-hidden"
                 style={{
                   animation: 'vinyl-spin 4s linear infinite',
@@ -466,17 +483,6 @@ export default function VinylPage({ pairing, track, resolvedCover, onBack }: Pro
               style={{ fontSize: showLog ? '1.1rem' : 'clamp(18px, 2.5vw, 32px)' }}>
               {displayTitle}
             </h1>
-            {pairing.character_tags.length > 0 && !showLog && !showCustom && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {pairing.character_tags.map(tag => (
-                  <span key={tag}
-                    className="text-xs px-2.5 py-1 rounded-full border border-white/10 text-white/35"
-                    style={{ background: `rgba(${rgb},0.12)` }}>
-                    #{tag}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* ── CUSTOM PANEL ── */}
@@ -619,6 +625,18 @@ function CustomPanel({ vd, update, updateJacket, updateDisk, rgb, onJacketUpload
 
   return (
     <>
+      {/* display title */}
+      <div>
+        <SectionTitle>NOW PLAYING 제목</SectionTitle>
+        <input
+          type="text"
+          value={vd.title}
+          onChange={e => update({ title: e.target.value })}
+          placeholder="비우면 곡 제목 또는 페어링 이름 표시"
+          className="w-full bg-white/5 border border-white/8 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-white/22 placeholder-white/18"
+        />
+      </div>
+
       {/* pattern themes */}
       <div>
         <SectionTitle>패턴 테마</SectionTitle>

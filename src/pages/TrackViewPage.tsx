@@ -291,6 +291,3 @@ export default function TrackViewPage({ pairing, tracks, initialTrackIndex, reso
     </div>
   );
 }
-
-
-export default TrackViewPage
