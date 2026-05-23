@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Star, ExternalLink, Music2, Hash, Disc3, ChevronLeft, Pencil, Play } from 'lucide-react';
+import { Star, ExternalLink, Music2, Hash, ChevronLeft, Pencil, Play } from 'lucide-react';
 import { getPairing, getTracksByPairing, updatePairing as updatePairingDb, resolveCoverUrl } from '../lib/localDb';
 import { Pairing, Track, Genre } from '../lib/types';
 import PairingModal from '../components/PairingModal';
@@ -9,7 +9,6 @@ interface Props {
   genre: Genre;
   onBack: () => void;
   onUpdated: (pairing: Pairing) => void;
-  onOpenVinyl: (pairing: Pairing, resolvedCover: string) => void;
   onOpenTrack: (pairing: Pairing, tracks: Track[], trackIndex: number, resolvedCover: string) => void;
 }
 
@@ -19,7 +18,7 @@ function hexToRgb(hex: string): string {
   return `${parseInt(result[1], 16)},${parseInt(result[2], 16)},${parseInt(result[3], 16)}`;
 }
 
-export default function PlaylistPage({ pairing: initialPairing, genre, onBack, onUpdated, onOpenVinyl, onOpenTrack }: Props) {
+export default function PlaylistPage({ pairing: initialPairing, genre, onBack, onUpdated, onOpenTrack }: Props) {
   const [pairing, setPairing] = useState(initialPairing);
   const [resolvedCover, setResolvedCover] = useState('');
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -139,21 +138,6 @@ export default function PlaylistPage({ pairing: initialPairing, genre, onBack, o
                 boxShadow: `inset 0 0 40px rgba(${rgb},0.3)`,
               }} />
             </div>
-
-            {/* Vinyl Mode Button */}
-            <button
-              onClick={() => onOpenVinyl(pairing, resolvedCover)}
-              className="flex items-center gap-3 w-full justify-center px-6 py-4 rounded-2xl border text-sm font-bold tracking-wide transition-all duration-200 hover:scale-[1.03] active:scale-95 mb-6"
-              style={{
-                background: `rgba(${rgb}, 0.25)`,
-                borderColor: `rgba(${rgb}, 0.5)`,
-                color: 'white',
-                boxShadow: `0 0 30px rgba(${rgb},0.2)`,
-              }}
-            >
-              <Disc3 className="w-5 h-5 animate-spin" style={{ animationDuration: '4s' }} />
-              바이닐 모드
-            </button>
 
             {/* Title + Description + Tags */}
             <div className="text-center lg:text-left max-w-sm">

@@ -197,18 +197,30 @@ export async function deleteCover(id: string): Promise<void> {
 export interface VinylData {
   title: string;
   note: string;
-  jacketCoverId: string;   // local-cover:// id for jacket image
-  diskCoverId: string;     // local-cover:// id for disk label image
+  jacketCoverId: string;
+  diskCoverId: string;
+  // pattern engine
+  patternTheme: string;        // 'wave' | 'supernova' | 'mandala' | 'radial' | 'aurora' | 'none'
+  gradientColors: string[];    // 2-3 hex colors
+  labelText: string;
+  labelFontSize: number;       // px
+  labelTextAlign: string;      // 'center' | 'left' | 'right'
 }
 
 function vinylKey(pairingId: string) { return `vinyl_data_${pairingId}`; }
 
+const DEFAULT_VINYL: VinylData = {
+  title: '', note: '', jacketCoverId: '', diskCoverId: '',
+  patternTheme: 'radial', gradientColors: ['#1a1a2e', '#0f3460', '#16213e'],
+  labelText: '', labelFontSize: 13, labelTextAlign: 'center',
+};
+
 export function getVinylData(pairingId: string): VinylData {
   try {
     const raw = localStorage.getItem(vinylKey(pairingId));
-    if (raw) return JSON.parse(raw) as VinylData;
+    if (raw) return { ...DEFAULT_VINYL, ...JSON.parse(raw) as VinylData };
   } catch { /* ignore */ }
-  return { title: '', note: '', jacketCoverId: '', diskCoverId: '' };
+  return { ...DEFAULT_VINYL };
 }
 
 export function saveVinylData(pairingId: string, data: VinylData): void {

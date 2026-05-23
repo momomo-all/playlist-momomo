@@ -41,9 +41,6 @@ export default function App() {
         genre={view.genre}
         onBack={() => setView({ screen: 'genre', genre: view.genre })}
         onUpdated={pairing => setView({ screen: 'playlist', pairing, genre: view.genre })}
-        onOpenVinyl={(pairing, resolvedCover) =>
-          setView({ screen: 'vinyl', pairing, genre: view.genre, resolvedCover })
-        }
         onOpenTrack={(pairing, tracks, trackIndex, resolvedCover) =>
           setView({ screen: 'trackView', pairing, genre: view.genre, tracks, trackIndex, resolvedCover })
         }
