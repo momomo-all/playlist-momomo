@@ -10,6 +10,7 @@ interface Props {
   onBack: () => void;
   onUpdated: (pairing: Pairing) => void;
   onOpenVinyl: (pairing: Pairing, resolvedCover: string) => void;
+  onOpenTrack: (pairing: Pairing, tracks: Track[], trackIndex: number, resolvedCover: string) => void;
 }
 
 function hexToRgb(hex: string): string {
@@ -18,10 +19,11 @@ function hexToRgb(hex: string): string {
   return `${parseInt(result[1], 16)},${parseInt(result[2], 16)},${parseInt(result[3], 16)}`;
 }
 
-export default function PlaylistPage({ pairing: initialPairing, genre, onBack, onUpdated, onOpenVinyl }: Props) {
+export default function PlaylistPage({ pairing: initialPairing, genre, onBack, onUpdated, onOpenVinyl, onOpenTrack }: Props) {
   const [pairing, setPairing] = useState(initialPairing);
   const [resolvedCover, setResolvedCover] = useState('');
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [trackCovers, setTrackCovers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [showEdit, setShowEdit] = useState(false);
   const [hoveredTrack, setHoveredTrack] = useState<string | null>(null);
@@ -33,6 +35,15 @@ export default function PlaylistPage({ pairing: initialPairing, genre, onBack, o
     const cover = await resolveCoverUrl(pairing.cover_url);
     setResolvedCover(cover);
     setLoading(false);
+    // resolve track covers
+    const coverMap: Record<string, string> = {};
+    for (const t of data) {
+      if (t.cover_id) {
+        const url = await resolveCoverUrl(`local-cover://${t.cover_id}`);
+        if (url) coverMap[t.id] = url;
+      }
+    }
+    setTrackCovers(coverMap);
   }, [pairing.id, pairing.cover_url]);
 
   useEffect(() => { loadTracks(); }, [loadTracks]);
@@ -169,7 +180,7 @@ export default function PlaylistPage({ pairing: initialPairing, genre, onBack, o
             </div>
           </div>
 
-          {/* ── RIGHT: Track List (Glassmorphism) ── */}
+          {/* ── RIGHT: Track List ── */}
           <div className="flex-1 min-w-0 w-full">
             <div
               className="rounded-3xl overflow-hidden backdrop-blur-xl border border-white/10"
@@ -180,19 +191,10 @@ export default function PlaylistPage({ pairing: initialPairing, genre, onBack, o
                 <span className="text-white/35 text-sm">{tracks.length}곡</span>
               </div>
 
-              {tracks.length > 0 && (
-                <div className="grid grid-cols-[44px_1fr_auto] sm:grid-cols-[44px_1fr_1fr_auto] gap-4 px-6 py-3 border-b border-white/5">
-                  <div className="text-white/25 text-xs font-medium text-center">#</div>
-                  <div className="text-white/25 text-xs font-medium">제목</div>
-                  <div className="text-white/25 text-xs font-medium hidden sm:block">설명</div>
-                  <div className="text-white/25 text-xs font-medium text-right">링크</div>
-                </div>
-              )}
-
               {loading ? (
                 <div>
                   {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-14 border-b border-white/5 last:border-0 animate-pulse"
+                    <div key={i} className="h-16 border-b border-white/5 last:border-0 animate-pulse"
                       style={{ background: `rgba(255,255,255,${0.02 + i * 0.005})` }} />
                   ))}
                 </div>
@@ -207,53 +209,83 @@ export default function PlaylistPage({ pairing: initialPairing, genre, onBack, o
                 </div>
               ) : (
                 <div>
-                  {tracks.map((track, idx) => (
-                    <div
-                      key={track.id}
-                      className="grid grid-cols-[44px_1fr_auto] sm:grid-cols-[44px_1fr_1fr_auto] gap-4 px-6 py-4 border-b border-white/5 last:border-0 transition-all duration-150 cursor-default"
-                      style={{ background: hoveredTrack === track.id ? `rgba(${rgb},0.12)` : 'transparent' }}
-                      onMouseEnter={() => setHoveredTrack(track.id)}
-                      onMouseLeave={() => setHoveredTrack(null)}
-                    >
-                      <div className="flex items-center justify-center">
-                        {hoveredTrack === track.id
-                          ? <Play className="w-4 h-4 text-white fill-white" />
-                          : <span className="text-white/35 text-sm tabular-nums">{idx + 1}</span>
-                        }
-                      </div>
-                      <div className="min-w-0 flex items-center">
-                        <p className={`text-sm font-medium leading-tight truncate transition-colors duration-150 ${
-                          hoveredTrack === track.id ? 'text-white' : 'text-white/80'
-                        }`}>
-                          {track.title}
-                        </p>
-                      </div>
-                      <div className="hidden sm:flex items-center min-w-0">
-                        <p className="text-white/35 text-sm truncate">{track.description || '—'}</p>
-                      </div>
-                      <div className="flex items-center justify-end">
-                        {track.youtube_url ? (
-                          <a
-                            href={track.youtube_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={e => e.stopPropagation()}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-150 border"
-                            style={{
-                              background: hoveredTrack === track.id ? 'rgba(239,68,68,0.25)' : 'rgba(239,68,68,0.1)',
-                              borderColor: 'rgba(239,68,68,0.3)',
-                              color: '#f87171',
-                            }}
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                            <span className="hidden sm:inline">YouTube</span>
-                          </a>
-                        ) : (
-                          <span className="text-white/20 text-xs">—</span>
+                  {tracks.map((track, idx) => {
+                    const tCover = trackCovers[track.id];
+                    const isHovered = hoveredTrack === track.id;
+                    return (
+                      <div
+                        key={track.id}
+                        className="flex items-center gap-4 px-5 py-3.5 border-b border-white/5 last:border-0 transition-all duration-150 cursor-pointer group"
+                        style={{ background: isHovered ? `rgba(${rgb},0.14)` : 'transparent' }}
+                        onMouseEnter={() => setHoveredTrack(track.id)}
+                        onMouseLeave={() => setHoveredTrack(null)}
+                        onClick={() => onOpenTrack(pairing, tracks, idx, resolvedCover)}
+                      >
+                        {/* Index / play icon */}
+                        <div className="w-7 flex items-center justify-center flex-shrink-0">
+                          {isHovered
+                            ? <Play className="w-4 h-4 text-white fill-white" />
+                            : <span className="text-white/30 text-sm tabular-nums">{idx + 1}</span>
+                          }
+                        </div>
+
+                        {/* Track thumbnail */}
+                        <div
+                          className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 border border-white/10 transition-transform duration-150"
+                          style={{ background: pairing.theme_color, transform: isHovered ? 'scale(1.06)' : 'scale(1)' }}
+                        >
+                          {tCover
+                            ? <img src={tCover} alt={track.title} className="w-full h-full object-cover" />
+                            : resolvedCover
+                              ? <img src={resolvedCover} alt="" className="w-full h-full object-cover opacity-60" />
+                              : <div className="w-full h-full flex items-center justify-center">
+                                  <Music2 className="w-4 h-4 text-white/20" />
+                                </div>
+                          }
+                        </div>
+
+                        {/* Title + description */}
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium leading-tight truncate transition-colors duration-150 ${isHovered ? 'text-white' : 'text-white/80'}`}>
+                            {track.title}
+                          </p>
+                          {track.description && (
+                            <p className="text-white/35 text-xs truncate mt-0.5">{track.description}</p>
+                          )}
+                        </div>
+
+                        {/* Lyrics indicator */}
+                        {track.lyrics && (
+                          <span className="hidden sm:flex items-center text-white/20 text-xs gap-1 flex-shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                            가사
+                          </span>
                         )}
+
+                        {/* YouTube link */}
+                        <div className="flex items-center flex-shrink-0" onClick={e => e.stopPropagation()}>
+                          {track.youtube_url ? (
+                            <a
+                              href={track.youtube_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-150 border"
+                              style={{
+                                background: isHovered ? 'rgba(239,68,68,0.25)' : 'rgba(239,68,68,0.1)',
+                                borderColor: 'rgba(239,68,68,0.3)',
+                                color: '#f87171',
+                              }}
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              <span className="hidden sm:inline">YouTube</span>
+                            </a>
+                          ) : (
+                            <span className="text-white/15 text-xs w-16 text-center">—</span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

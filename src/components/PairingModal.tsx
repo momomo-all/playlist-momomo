@@ -18,7 +18,11 @@ interface TrackDraft {
   title: string;
   description: string;
   youtube_url: string;
+  lyrics: string;
+  cover_id: string;
   order_index: number;
+  coverBlob?: Blob | null;
+  coverPreview?: string;
 }
 
 const PRESET_COLORS = [
@@ -29,6 +33,7 @@ const PRESET_COLORS = [
 
 export default function PairingModal({ pairing, genres, defaultGenreId, initialTracks = [], onClose, onSaved }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const trackFileRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const [genreId, setGenreId] = useState(pairing?.genre_id || defaultGenreId || genres[0]?.id || '');
   const [name, setName] = useState(pairing?.name || '');
@@ -46,13 +51,37 @@ export default function PairingModal({ pairing, genres, defaultGenreId, initialT
     }
   }, [pairing?.cover_url]);
 
-  const [tracks, setTracks] = useState<TrackDraft[]>(
+  const [tracks, setTracks] = useState<TrackDraft[]>(() =>
     initialTracks.length > 0
-      ? initialTracks.map(t => ({ id: t.id, title: t.title, description: t.description, youtube_url: t.youtube_url, order_index: t.order_index }))
+      ? initialTracks.map(t => ({
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          youtube_url: t.youtube_url,
+          lyrics: t.lyrics || '',
+          cover_id: t.cover_id || '',
+          order_index: t.order_index,
+        }))
       : []
   );
+
+  // resolve track cover previews on mount
+  useEffect(() => {
+    initialTracks.forEach((t, idx) => {
+      if (t.cover_id) {
+        resolveCoverUrl(`local-cover://${t.cover_id}`).then(url => {
+          if (url) {
+            setTracks(prev => prev.map((d, i) => i === idx ? { ...d, coverPreview: url } : d));
+          }
+        });
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [expandedTrack, setExpandedTrack] = useState<number | null>(null);
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -60,6 +89,16 @@ export default function PairingModal({ pairing, genres, defaultGenreId, initialT
     const compressed = await compressImage(file);
     setCoverBlob(compressed);
     setCoverPreview(URL.createObjectURL(compressed));
+  };
+
+  const handleTrackImageChange = async (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const compressed = await compressImage(file);
+    setTracks(prev => prev.map((t, i) =>
+      i === idx ? { ...t, coverBlob: compressed, coverPreview: URL.createObjectURL(compressed) } : t
+    ));
+    e.target.value = '';
   };
 
   const addTag = () => {
@@ -71,7 +110,7 @@ export default function PairingModal({ pairing, genres, defaultGenreId, initialT
   const removeTag = (tag: string) => setTags(prev => prev.filter(t => t !== tag));
 
   const addTrackItem = () => {
-    setTracks(prev => [...prev, { title: '', description: '', youtube_url: '', order_index: prev.length }]);
+    setTracks(prev => [...prev, { title: '', description: '', youtube_url: '', lyrics: '', cover_id: '', order_index: prev.length }]);
   };
 
   const updateTrackField = (idx: number, field: keyof TrackDraft, value: string) => {
@@ -80,6 +119,7 @@ export default function PairingModal({ pairing, genres, defaultGenreId, initialT
 
   const removeTrackItem = (idx: number) => {
     setTracks(prev => prev.filter((_, i) => i !== idx).map((t, i) => ({ ...t, order_index: i })));
+    if (expandedTrack === idx) setExpandedTrack(null);
   };
 
   const moveTrack = (idx: number, dir: -1 | 1) => {
@@ -100,7 +140,6 @@ export default function PairingModal({ pairing, genres, defaultGenreId, initialT
 
     try {
       let finalCoverUrl = coverUrl;
-
       if (coverBlob) {
         const coverId = crypto.randomUUID();
         finalCoverUrl = await saveCover(coverId, coverBlob);
@@ -131,25 +170,60 @@ export default function PairingModal({ pairing, genres, defaultGenreId, initialT
         pairingId = created.id;
       }
 
-      // sync tracks — only save tracks with non-empty titles
+      // save track cover blobs first, then sync tracks
       const validTracks = tracks.filter(t => t.title.trim());
+
+      // upload new track cover images
+      for (const t of validTracks) {
+        if (t.coverBlob) {
+          const coverId = `track_cover_${pairingId}_${t.id || crypto.randomUUID()}`;
+          await saveCover(coverId, t.coverBlob);
+          t.cover_id = coverId;
+        }
+      }
+
       if (pairing) {
         const existingIds = initialTracks.map(t => t.id);
         const keepIds = validTracks.filter(t => t.id).map(t => t.id!);
         const toDelete = existingIds.filter(id => !keepIds.includes(id));
-        for (const id of toDelete) {
-          await deleteTrack(id);
-        }
+        for (const id of toDelete) await deleteTrack(id);
+
         for (const t of validTracks.filter(t => t.id)) {
-          await updateTrack({ id: t.id!, user_id: 'local', pairing_id: pairingId!, title: t.title.trim(), description: t.description, youtube_url: t.youtube_url, order_index: t.order_index, created_at: '' });
+          await updateTrack({
+            id: t.id!,
+            user_id: 'local',
+            pairing_id: pairingId!,
+            title: t.title.trim(),
+            description: t.description,
+            youtube_url: t.youtube_url,
+            lyrics: t.lyrics,
+            cover_id: t.cover_id,
+            order_index: t.order_index,
+            created_at: '',
+          });
         }
-        const newTracks = validTracks.filter(t => !t.id);
-        for (const t of newTracks) {
-          await addTrack({ pairing_id: pairingId!, title: t.title.trim(), description: t.description, youtube_url: t.youtube_url, order_index: t.order_index });
+        for (const t of validTracks.filter(t => !t.id)) {
+          await addTrack({
+            pairing_id: pairingId!,
+            title: t.title.trim(),
+            description: t.description,
+            youtube_url: t.youtube_url,
+            lyrics: t.lyrics,
+            cover_id: t.cover_id,
+            order_index: t.order_index,
+          });
         }
       } else {
         for (const t of validTracks) {
-          await addTrack({ pairing_id: pairingId!, title: t.title.trim(), description: t.description, youtube_url: t.youtube_url, order_index: t.order_index });
+          await addTrack({
+            pairing_id: pairingId!,
+            title: t.title.trim(),
+            description: t.description,
+            youtube_url: t.youtube_url,
+            lyrics: t.lyrics,
+            cover_id: t.cover_id,
+            order_index: t.order_index,
+          });
         }
       }
 
@@ -177,7 +251,6 @@ export default function PairingModal({ pairing, genres, defaultGenreId, initialT
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Cover + Basic Info */}
           <div className="flex gap-5">
-            {/* Cover Image */}
             <div
               className="w-28 h-28 flex-shrink-0 rounded-xl border border-white/10 overflow-hidden cursor-pointer relative group"
               style={{ background: themeColor }}
@@ -197,7 +270,6 @@ export default function PairingModal({ pairing, genres, defaultGenreId, initialT
               <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
             </div>
 
-            {/* Name & Genre */}
             <div className="flex-1 space-y-3">
               <div>
                 <label className="block text-zinc-400 text-xs font-medium mb-1">페어 이름</label>
@@ -311,9 +383,10 @@ export default function PairingModal({ pairing, genres, defaultGenreId, initialT
             )}
             <div className="space-y-3">
               {tracks.map((track, idx) => (
-                <div key={idx} className="bg-[#1e1e1e] border border-white/8 rounded-xl p-3 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col gap-0.5">
+                <div key={idx} className="bg-[#1e1e1e] border border-white/8 rounded-xl overflow-hidden">
+                  {/* Track header row */}
+                  <div className="flex items-center gap-2 p-3">
+                    <div className="flex flex-col gap-0.5 flex-shrink-0">
                       <button type="button" onClick={() => moveTrack(idx, -1)} disabled={idx === 0} className="text-zinc-600 hover:text-zinc-300 disabled:opacity-30 transition-colors">
                         <ChevronUp className="w-3.5 h-3.5" />
                       </button>
@@ -321,33 +394,78 @@ export default function PairingModal({ pairing, genres, defaultGenreId, initialT
                         <ChevronDown className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                    <span className="text-zinc-600 text-xs w-5">{idx + 1}</span>
+
+                    {/* Track cover thumbnail */}
+                    <div
+                      className="w-10 h-10 rounded-lg flex-shrink-0 border border-white/8 overflow-hidden cursor-pointer relative group"
+                      style={{ background: themeColor }}
+                      onClick={() => trackFileRefs.current[idx]?.click()}
+                    >
+                      {track.coverPreview
+                        ? <img src={track.coverPreview} alt="" className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-3.5 h-3.5 text-white/25" /></div>
+                      }
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Upload className="w-3 h-3 text-white" />
+                      </div>
+                      <input
+                        ref={el => { trackFileRefs.current[idx] = el; }}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={e => handleTrackImageChange(e, idx)}
+                      />
+                    </div>
+
+                    <span className="text-zinc-600 text-xs w-4 flex-shrink-0">{idx + 1}</span>
+
                     <input
                       type="text"
                       value={track.title}
                       onChange={e => updateTrackField(idx, 'title', e.target.value)}
                       className="flex-1 bg-[#272727] border border-white/5 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-rose-500/40 transition-all"
                       placeholder="곡 제목"
-                      required
                     />
+
+                    <button
+                      type="button"
+                      onClick={() => setExpandedTrack(expandedTrack === idx ? null : idx)}
+                      className="px-2 py-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 text-xs transition-colors flex-shrink-0"
+                    >
+                      {expandedTrack === idx ? '접기' : '상세'}
+                    </button>
+
                     <button type="button" onClick={() => removeTrackItem(idx)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/15 text-zinc-600 hover:text-red-400 transition-all flex-shrink-0">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  <input
-                    type="text"
-                    value={track.description}
-                    onChange={e => updateTrackField(idx, 'description', e.target.value)}
-                    className="w-full bg-[#272727] border border-white/5 rounded-lg px-3 py-2 text-zinc-400 text-xs placeholder-zinc-600 focus:outline-none focus:border-rose-500/40 transition-all"
-                    placeholder="곡 설명 (선택)"
-                  />
-                  <input
-                    type="url"
-                    value={track.youtube_url}
-                    onChange={e => updateTrackField(idx, 'youtube_url', e.target.value)}
-                    className="w-full bg-[#272727] border border-white/5 rounded-lg px-3 py-2 text-zinc-400 text-xs placeholder-zinc-600 focus:outline-none focus:border-rose-500/40 transition-all"
-                    placeholder="YouTube 링크"
-                  />
+
+                  {/* Expanded fields */}
+                  {expandedTrack === idx && (
+                    <div className="px-3 pb-3 space-y-2 border-t border-white/5 pt-3">
+                      <input
+                        type="text"
+                        value={track.description}
+                        onChange={e => updateTrackField(idx, 'description', e.target.value)}
+                        className="w-full bg-[#272727] border border-white/5 rounded-lg px-3 py-2 text-zinc-400 text-xs placeholder-zinc-600 focus:outline-none focus:border-rose-500/40 transition-all"
+                        placeholder="곡 설명 (선택)"
+                      />
+                      <input
+                        type="url"
+                        value={track.youtube_url}
+                        onChange={e => updateTrackField(idx, 'youtube_url', e.target.value)}
+                        className="w-full bg-[#272727] border border-white/5 rounded-lg px-3 py-2 text-zinc-400 text-xs placeholder-zinc-600 focus:outline-none focus:border-rose-500/40 transition-all"
+                        placeholder="YouTube 링크"
+                      />
+                      <textarea
+                        value={track.lyrics}
+                        onChange={e => updateTrackField(idx, 'lyrics', e.target.value)}
+                        rows={4}
+                        className="w-full bg-[#272727] border border-white/5 rounded-lg px-3 py-2 text-zinc-400 text-xs placeholder-zinc-600 focus:outline-none focus:border-rose-500/40 transition-all resize-none"
+                        placeholder="가사 또는 대화 로그..."
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

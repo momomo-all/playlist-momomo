@@ -157,6 +157,8 @@ export async function getTracksByPairing(pairingId: string): Promise<Track[]> {
 
 export async function addTrack(data: Omit<Track, 'id' | 'user_id' | 'created_at'>): Promise<Track> {
   const track: Track = {
+    lyrics: '',
+    cover_id: '',
     id: uid(),
     user_id: 'local',
     ...data,

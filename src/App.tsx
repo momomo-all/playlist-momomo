@@ -2,14 +2,16 @@ import { useState } from 'react';
 import MainPage from './pages/MainPage';
 import GenrePage from './pages/GenrePage';
 import PlaylistPage from './pages/PlaylistPage';
+import TrackViewPage from './pages/TrackViewPage';
 import VinylPage from './pages/VinylPage';
-import { Genre, Pairing } from './lib/types';
+import { Genre, Pairing, Track } from './lib/types';
 
 type View =
   | { screen: 'main' }
   | { screen: 'genre'; genre: Genre }
   | { screen: 'playlist'; pairing: Pairing; genre: Genre }
-  | { screen: 'vinyl'; pairing: Pairing; genre: Genre; resolvedCover: string };
+  | { screen: 'trackView'; pairing: Pairing; genre: Genre; tracks: Track[]; trackIndex: number; resolvedCover: string }
+  | { screen: 'vinyl'; pairing: Pairing; genre: Genre; track?: Track; resolvedCover: string; fromTrackView?: { tracks: Track[]; trackIndex: number } };
 
 export default function App() {
   const [view, setView] = useState<View>({ screen: 'main' });
@@ -42,6 +44,31 @@ export default function App() {
         onOpenVinyl={(pairing, resolvedCover) =>
           setView({ screen: 'vinyl', pairing, genre: view.genre, resolvedCover })
         }
+        onOpenTrack={(pairing, tracks, trackIndex, resolvedCover) =>
+          setView({ screen: 'trackView', pairing, genre: view.genre, tracks, trackIndex, resolvedCover })
+        }
+      />
+    );
+  }
+
+  if (view.screen === 'trackView') {
+    return (
+      <TrackViewPage
+        pairing={view.pairing}
+        tracks={view.tracks}
+        initialTrackIndex={view.trackIndex}
+        resolvedPairingCover={view.resolvedCover}
+        onBack={() => setView({ screen: 'playlist', pairing: view.pairing, genre: view.genre })}
+        onOpenVinyl={() =>
+          setView({
+            screen: 'vinyl',
+            pairing: view.pairing,
+            genre: view.genre,
+            track: view.tracks[view.trackIndex],
+            resolvedCover: view.resolvedCover,
+            fromTrackView: { tracks: view.tracks, trackIndex: view.trackIndex },
+          })
+        }
       />
     );
   }
@@ -50,10 +77,22 @@ export default function App() {
     return (
       <VinylPage
         pairing={view.pairing}
+        track={view.track}
         resolvedCover={view.resolvedCover}
-        onBack={() =>
-          setView({ screen: 'playlist', pairing: view.pairing, genre: view.genre })
-        }
+        onBack={() => {
+          if (view.fromTrackView) {
+            setView({
+              screen: 'trackView',
+              pairing: view.pairing,
+              genre: view.genre,
+              tracks: view.fromTrackView.tracks,
+              trackIndex: view.fromTrackView.trackIndex,
+              resolvedCover: view.resolvedCover,
+            });
+          } else {
+            setView({ screen: 'playlist', pairing: view.pairing, genre: view.genre });
+          }
+        }}
       />
     );
   }

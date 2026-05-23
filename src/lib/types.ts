@@ -30,6 +30,8 @@ export interface Track {
   title: string;
   description: string;
   youtube_url: string;
+  lyrics: string;
+  cover_id: string;
   order_index: number;
   created_at: string;
 }
