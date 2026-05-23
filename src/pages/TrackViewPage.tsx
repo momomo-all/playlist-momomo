@@ -144,7 +144,7 @@ export default function TrackViewPage({ pairing, tracks, initialTrackIndex, reso
 
         {/* LEFT: cover + track info */}
         <div className="flex flex-col items-center justify-center flex-shrink-0 select-none"
-          style={{ width: 'clamp(280px, 34vw, 420px)', padding: '0 32px' }}>
+          style={{ width: 'clamp(260px, 28vw, 360px)', padding: '0 28px 0 40px' }}>
 
           {/* bare album cover */}
           <div className="w-full mb-8" style={{ maxWidth: 340 }}>
@@ -225,7 +225,7 @@ export default function TrackViewPage({ pairing, tracks, initialTrackIndex, reso
         </div>
 
         {/* RIGHT: lyrics / log */}
-        <div className="flex-1 min-w-0 flex flex-col overflow-hidden" style={{ paddingRight: 48 }}>
+        <div className="flex-1 min-w-0 flex flex-col overflow-hidden" style={{ paddingLeft: 40, paddingRight: 64 }}>
 
           {/* section label */}
           <div className="flex-shrink-0 mb-8">
@@ -256,10 +256,10 @@ export default function TrackViewPage({ pairing, tracks, initialTrackIndex, reso
                       fontFamily: '"Noto Sans KR", "Apple SD Gothic Neo", -apple-system, sans-serif',
                       fontSize: 'clamp(22px, 2.2vw, 30px)',
                       fontWeight: 700,
-                      lineHeight: 1.65,
-                      letterSpacing: '-0.01em',
+                      lineHeight: 2.05,
+                      letterSpacing: '0.01em',
                       color: line.trim() === '' ? 'transparent' : 'rgba(255,255,255,0.88)',
-                      marginBottom: line.trim() === '' ? '0.6em' : 0,
+                      marginBottom: line.trim() === '' ? '0.9em' : 0,
                       transition: 'color 0.3s',
                       wordBreak: 'keep-all',
                       overflowWrap: 'break-word',
