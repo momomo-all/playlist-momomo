@@ -98,33 +98,26 @@ export default function TrackViewPage({ pairing, tracks, initialTrackIndex, reso
       <div className="relative z-20 flex h-full" style={{ paddingTop: 76, paddingBottom: 16 }}>
 
         {/* ═══ LEFT COLUMN ═══ */}
-        <div className="flex flex-col items-center justify-center flex-shrink-0 px-10"
-          style={{ width: 'clamp(300px, 38vw, 480px)' }}>
+        <div className="flex flex-col items-center justify-center flex-shrink-0 px-8"
+          style={{ width: 'clamp(380px, 42vw, 520px)' }}>
 
-          {/* Album jacket */}
-          <div className="relative w-full mb-7" style={{ maxWidth: 340 }}>
-            <div className="w-full rounded-3xl overflow-hidden shadow-2xl"
-              style={{
-                aspectRatio: '1',
-                boxShadow: `0 40px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.07), 0 0 60px rgba(${rgb},0.25)`,
-              }}>
-              {coverUrl
-                ? <img src={coverUrl} alt={track.title} className="w-full h-full object-cover transition-opacity duration-500" />
-                : (
-                  <div className="w-full h-full flex items-center justify-center" style={{ background: pairing.theme_color }}>
-                    <Music2 className="w-20 h-20 text-white/20" />
-                  </div>
-                )
-              }
-            </div>
-            {/* Subtle reflection */}
-            <div className="w-full rounded-3xl overflow-hidden opacity-20 mt-1.5" style={{ height: 40, transform: 'scaleY(-1)' }}>
-              {coverUrl && <img src={coverUrl} alt="" className="w-full h-full object-cover object-top" style={{ filter: 'blur(4px)' }} />}
-            </div>
+          {/* Album jacket — bare image, no wrapper box */}
+          <div className="mb-7 flex-shrink-0" style={{ width: 420 }}>
+            {coverUrl
+              ? <img src={coverUrl} alt={track.title}
+                  className="w-full rounded-3xl object-cover transition-opacity duration-500"
+                  style={{ aspectRatio: '1', display: 'block' }} />
+              : (
+                <div className="w-full rounded-3xl flex items-center justify-center"
+                  style={{ aspectRatio: '1', background: pairing.theme_color }}>
+                  <Music2 className="w-20 h-20 text-white/20" />
+                </div>
+              )
+            }
           </div>
 
           {/* Track title + meta */}
-          <div className="w-full text-left px-1" style={{ maxWidth: 340 }}>
+          <div className="w-full text-left px-1" style={{ width: 420 }}>
             <h1 className="text-white font-bold leading-tight mb-1.5"
               style={{ fontSize: 'clamp(20px, 2.4vw, 30px)' }}>
               {track.title}
