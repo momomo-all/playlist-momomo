@@ -371,6 +371,3 @@ function ToneArm({ themeColor, rgb }: { themeColor: string; rgb: string }) {
     </div>
   );
 }
-
-
-export default VinylPage
