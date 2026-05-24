@@ -206,6 +206,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
   });
 
   const [jacketUrl, setJacketUrl] = useState('');
+  const [bgUrl,     setBgUrl]     = useState('');
   const [showCustom,  setShowCustom]  = useState(false);
   const [showLog,     setShowLog]     = useState(false);
   const [editingLog,  setEditingLog]  = useState(false);
@@ -218,6 +219,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
   const [isMobile,     setIsMobile]     = useState(false);
 
   const jacketInputRef = useRef<HTMLInputElement>(null);
+  const bgInputRef     = useRef<HTMLInputElement>(null);
   const sceneRef       = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -237,6 +239,10 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
     setJacketUrl(data.jacketCoverId
       ? (await resolveCoverUrl(`local-cover://${data.jacketCoverId}`)) || resolvedCover
       : resolvedCover
+    );
+    setBgUrl(data.bgCoverId
+      ? (await resolveCoverUrl(`local-cover://${data.bgCoverId}`)) || ''
+      : ''
     );
   }, [resolvedCover]);
 
@@ -275,6 +281,17 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
     update({ jacketCoverId: coverId });
     e.target.value = '';
   };
+
+  const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const coverId = `vinyl_bg_${pairing.id}`;
+    await saveCover(coverId, file);
+    update({ bgCoverId: coverId });
+    e.target.value = '';
+  };
+
+  const clearBg = () => update({ bgCoverId: '' });
 
   const saveLog = () => {
     update({ note: logDraft });
@@ -316,7 +333,9 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
   }, [pairing.id]));
 
   const rgb = hexToRgb(pairing.theme_color || '#1a1a2e');
-  const bgImg = jacketUrl || resolvedCover;
+  const bgImg = bgUrl || jacketUrl || resolvedCover;
+  const bgBlur = vd.bgBlur ?? 90;
+  const bgOpacity = (vd.bgOpacity ?? 88) / 100;
   const displayTitle = vd.title || (track ? track.title : pairing.name);
   const diskGradient = buildGradient(vd.gradientColors, vd.patternTheme);
   const ls = vd.labelStyle;
@@ -331,7 +350,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
           {bgImg && (
             <img src={bgImg} alt=""
               className="absolute inset-0 w-full h-full object-cover"
-              style={{ filter: 'blur(70px)', transform: 'scale(1.3)', opacity: 0.8 }} />
+              style={{ filter: `blur(${bgBlur}px)`, transform: 'scale(1.3)', opacity: bgOpacity }} />
           )}
           <div className="absolute inset-0" style={{ background: 'rgba(4,4,6,0.65)' }} />
         </div>
@@ -487,7 +506,8 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
             <div className="pt-2 space-y-6">
               <CustomPanel
                 vd={vd} update={update} updateJacket={updateJacket} updateDisk={updateDisk}
-                rgb={rgb} onJacketUpload={() => jacketInputRef.current?.click()} />
+                rgb={rgb} onJacketUpload={() => jacketInputRef.current?.click()}
+                onBgUpload={() => bgInputRef.current?.click()} onClearBg={clearBg} bgUrl={bgUrl} />
             </div>
           )}
 
@@ -506,6 +526,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
         </div>
 
         <input ref={jacketInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+        <input ref={bgInputRef} type="file" accept="image/*" className="hidden" onChange={handleBgUpload} />
       </div>
     );
   }
@@ -519,7 +540,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
         {bgImg && (
           <img src={bgImg} alt=""
             className="absolute inset-0 w-full h-full object-cover"
-            style={{ filter: 'blur(90px)', transform: 'scale(1.25)', opacity: 0.88 }} />
+            style={{ filter: `blur(${bgBlur}px)`, transform: 'scale(1.25)', opacity: bgOpacity }} />
         )}
         <div className="absolute inset-0" style={{ background: 'rgba(4,4,6,0.60)' }} />
         <div className="absolute inset-0" style={{
@@ -696,7 +717,8 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
               <div className="flex-1 min-h-0 overflow-y-auto pr-4 space-y-6"
                 style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}>
                 <CustomPanel vd={vd} update={update} updateJacket={updateJacket} updateDisk={updateDisk}
-                  rgb={rgb} onJacketUpload={() => jacketInputRef.current?.click()} />
+                  rgb={rgb} onJacketUpload={() => jacketInputRef.current?.click()}
+                  onBgUpload={() => bgInputRef.current?.click()} onClearBg={clearBg} bgUrl={bgUrl} />
               </div>
             )}
 
@@ -775,13 +797,16 @@ interface CPProps {
   updateDisk: (t: Partial<ElementTransform>) => void;
   rgb: string;
   onJacketUpload: () => void;
+  onBgUpload: () => void;
+  onClearBg: () => void;
+  bgUrl: string;
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.18em] mb-2.5">{children}</p>;
 }
 
-function CustomPanel({ vd, update, updateJacket, updateDisk, rgb, onJacketUpload }: CPProps) {
+function CustomPanel({ vd, update, updateJacket, updateDisk, rgb, onJacketUpload, onBgUpload, onClearBg, bgUrl }: CPProps) {
   const setColor = (idx: number, hex: string) => {
     const next = [...vd.gradientColors];
     next[idx] = hex;
@@ -793,6 +818,59 @@ function CustomPanel({ vd, update, updateJacket, updateDisk, rgb, onJacketUpload
 
   return (
     <>
+      {/* ── Background section ── */}
+      <div>
+        <SectionTitle>배경 이미지</SectionTitle>
+        <div className="space-y-3">
+          {/* Preview + upload/clear */}
+          <div className="flex items-center gap-3">
+            <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 border border-white/12 relative"
+              style={{ background: bgUrl ? 'transparent' : 'rgba(255,255,255,0.05)' }}>
+              {bgUrl
+                ? <img src={bgUrl} alt="" className="w-full h-full object-cover" />
+                : <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-white/20 text-[10px] text-center leading-tight px-1">앨범<br/>커버</span>
+                  </div>
+              }
+            </div>
+            <div className="flex flex-col gap-2 flex-1">
+              <button onClick={onBgUpload}
+                className="flex items-center justify-center gap-2 py-2 rounded-xl text-white/70 text-xs font-medium active:scale-95 transition-all hover:text-white"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <Upload className="w-3.5 h-3.5" /> 배경 사진 선택
+              </button>
+              {bgUrl && (
+                <button onClick={onClearBg}
+                  className="flex items-center justify-center gap-2 py-2 rounded-xl text-white/40 text-xs transition-all hover:text-red-400 active:scale-95"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  <X className="w-3.5 h-3.5" /> 기본값으로 (앨범 커버)
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Blur slider */}
+          <SliderRow
+            icon={<span className="text-[11px]">흐림</span>}
+            label=""
+            min={0} max={120} step={2}
+            value={vd.bgBlur ?? 90}
+            onChange={v => update({ bgBlur: v })}
+            unit="px"
+          />
+
+          {/* Opacity slider */}
+          <SliderRow
+            icon={<span className="text-[11px]">밝기</span>}
+            label=""
+            min={0} max={100} step={1}
+            value={vd.bgOpacity ?? 88}
+            onChange={v => update({ bgOpacity: v })}
+            unit="%"
+          />
+        </div>
+      </div>
+
       <div>
         <SectionTitle>패턴 테마</SectionTitle>
         <div className="grid grid-cols-3 gap-2">
@@ -956,3 +1034,6 @@ function SliderRow({ icon, label, min, max, step = 1, value, onChange, unit = ''
 }
 
 export default VinylPage;
+
+
+export default VinylPage

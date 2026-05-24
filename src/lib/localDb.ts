@@ -225,6 +225,10 @@ export interface VinylData {
   jacketTransform: ElementTransform;
   diskTransform: ElementTransform;
   labelStyle: LabelStyle;
+  // background
+  bgCoverId: string;
+  bgBlur: number;
+  bgOpacity: number;
 }
 
 function vinylKey(pairingId: string) { return `vinyl_data_${pairingId}`; }
@@ -241,6 +245,7 @@ const DEFAULT_VINYL: VinylData = {
   jacketTransform: { ...DEFAULT_TRANSFORM },
   diskTransform: { ...DEFAULT_TRANSFORM },
   labelStyle: { ...DEFAULT_LABEL },
+  bgCoverId: '', bgBlur: 90, bgOpacity: 88,
 };
 
 export { DEFAULT_TRANSFORM, DEFAULT_LABEL };
