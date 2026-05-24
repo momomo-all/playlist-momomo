@@ -87,6 +87,23 @@ function useDrag(enabled: boolean, onMove: (dx: number, dy: number) => void) {
 
 /* ── PNG export ── */
 
+async function imgToBase64(src: string): Promise<string> {
+  if (!src) return '';
+  if (src.startsWith('data:')) return src;
+  try {
+    const res = await fetch(src);
+    const blob = await res.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return '';
+  }
+}
+
 async function exportToPng(
   sceneEl: HTMLElement,
   note: string,
@@ -96,6 +113,19 @@ async function exportToPng(
   const sceneRect = sceneEl.getBoundingClientRect();
   const W = Math.round(sceneRect.width);
   const H = Math.round(sceneRect.height);
+
+  // Clone DOM and inline all external image src as base64 to avoid canvas tainting
+  const clone = sceneEl.cloneNode(true) as HTMLElement;
+  const imgs = clone.querySelectorAll('img');
+  await Promise.all(Array.from(imgs).map(async (img) => {
+    const b64 = await imgToBase64(img.src);
+    if (b64) img.src = b64;
+    img.crossOrigin = 'anonymous';
+  }));
+  // Also replace background-image url() in inline styles
+  clone.querySelectorAll<HTMLElement>('[style]').forEach(el => {
+    // skip — handled by image elements above
+  });
 
   const NOTE_W = note.trim() ? 420 : 0;
   const TOTAL_W = W + NOTE_W;
@@ -115,16 +145,16 @@ async function exportToPng(
     <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
       <foreignObject width="${W}" height="${H}">
         <div xmlns="http://www.w3.org/1999/xhtml" style="width:${W}px;height:${H}px;overflow:hidden;">
-          ${sceneEl.outerHTML}
+          ${clone.outerHTML}
         </div>
       </foreignObject>
     </svg>`;
-  const blob = new Blob([svgString], { type: 'image/svg+xml' });
-  const url  = URL.createObjectURL(blob);
+  const svgBlob = new Blob([svgString], { type: 'image/svg+xml' });
+  const url  = URL.createObjectURL(svgBlob);
   const img  = new Image();
-  await new Promise<void>((res, rej) => {
+  await new Promise<void>((res) => {
     img.onload = () => res();
-    img.onerror = () => rej();
+    img.onerror = () => res(); // proceed even if SVG render fails
     img.src = url;
   });
   ctx.drawImage(img, 0, 0, W, H);
@@ -161,9 +191,9 @@ async function exportToPng(
     const maxW = NOTE_W - PAD * 2;
     for (const line of lines) {
       if (y > TOTAL_H - PAD) break;
-      const words = line.split('');
+      const chars = line.split('');
       let row = '';
-      for (const ch of words) {
+      for (const ch of chars) {
         const test = row + ch;
         if (ctx.measureText(test).width > maxW) {
           ctx.fillText(row, W + PAD, y);
@@ -179,10 +209,21 @@ async function exportToPng(
     }
   }
 
-  const link = document.createElement('a');
-  link.download = `vinyl_${title.replace(/\s+/g, '_') || 'export'}.png`;
-  link.href = canvas.toDataURL('image/png');
-  link.click();
+  try {
+    const dataUrl = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.download = `vinyl_${title.replace(/\s+/g, '_') || 'export'}.png`;
+    link.href = dataUrl;
+    link.click();
+  } catch {
+    // Canvas still tainted (e.g. CORS image) — fallback: open in new tab
+    canvas.toBlob(blob => {
+      if (blob) {
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+      }
+    });
+  }
 }
 
 /* ── main component ── */
@@ -239,9 +280,12 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
   }, [pairing.id]);
 
   const resolveImages = useCallback(async (data: VinylData) => {
+    const baseUrl = resolvedCover.startsWith('local-cover://')
+      ? (await resolveCoverUrl(resolvedCover)) || ''
+      : resolvedCover;
     setJacketUrl(data.jacketCoverId
-      ? (await resolveCoverUrl(`local-cover://${data.jacketCoverId}`)) || resolvedCover
-      : resolvedCover
+      ? (await resolveCoverUrl(`local-cover://${data.jacketCoverId}`)) || baseUrl
+      : baseUrl
     );
     setBgUrl(data.bgCoverId
       ? (await resolveCoverUrl(`local-cover://${data.bgCoverId}`)) || ''
@@ -734,21 +778,19 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
       {/* Floating panel — absolute, freely draggable, no boundary */}
       {(showLog || showCustom) && (
         <div
-          className="absolute z-30 flex flex-col rounded-2xl backdrop-blur-2xl border border-white/10 shadow-2xl"
+          className="absolute z-30 rounded-2xl backdrop-blur-2xl border border-white/10 shadow-2xl"
           style={{
             width: showCustom ? 340 : 420,
-            maxHeight: 'calc(100vh - 100px)',
             top: panelPos ? panelPos.y : 80,
             left: panelPos ? panelPos.x : undefined,
             right: panelPos ? undefined : 28,
-            background: 'rgba(10,10,14,0.88)',
-            cursor: panelDragging.current ? 'grabbing' : 'default',
+            background: 'rgba(10,10,14,0.92)',
           }}
           onMouseDown={onPanelMouseDown}
           onTouchStart={onPanelTouchStart}
         >
           {/* drag handle bar */}
-          <div className="flex items-center justify-between px-4 py-3 flex-shrink-0 select-none cursor-grab active:cursor-grabbing"
+          <div className="flex items-center justify-between px-4 py-3 select-none cursor-grab active:cursor-grabbing"
             style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <div className="flex items-center gap-2">
               <div className="flex gap-1">
@@ -760,7 +802,6 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
                 {showLog ? 'LOG' : 'CUSTOMIZE'}
               </p>
             </div>
-            {/* title edit — log panel only */}
             {showLog && (
               editingTitle ? (
                 <form onSubmit={e => { e.preventDefault(); update({ title: titleDraft }); setEditingTitle(false); }}
@@ -783,8 +824,8 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
 
           {/* Custom panel */}
           {showCustom && (
-            <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-6"
-              style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}>
+            <div className="overflow-y-auto px-4 py-4 space-y-6"
+              style={{ maxHeight: 'calc(100vh - 160px)', scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}>
               <CustomPanel vd={vd} update={update} updateJacket={updateJacket} updateDisk={updateDisk}
                 rgb={rgb} onJacketUpload={() => jacketInputRef.current?.click()}
                 onBgUpload={() => bgInputRef.current?.click()} onClearBg={clearBg} bgUrl={bgUrl} />
@@ -793,24 +834,25 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
 
           {/* Log panel */}
           {showLog && (
-            <div className="flex-1 min-h-0 flex flex-col gap-3 px-4 py-4" style={{ minHeight: 200 }}>
+            <div className="flex flex-col gap-3 px-4 py-4">
               {editingLog ? (
                 <>
                   <textarea autoFocus value={logDraft} onChange={e => setLogDraft(e.target.value)}
                     placeholder={'가사나 대화 로그를 자유롭게 기록해보세요...'}
                     onMouseDown={e => e.stopPropagation()}
-                    className="flex-1 min-h-0 w-full rounded-xl px-4 py-3 text-white/80 text-sm leading-[1.9] resize-none focus:outline-none"
-                    style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid rgba(${rgb},0.35)`, minHeight: 200, scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent', caretColor: pairing.theme_color }} />
+                    rows={10}
+                    className="w-full rounded-xl px-4 py-3 text-white/80 text-sm leading-[1.9] resize-none focus:outline-none"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid rgba(${rgb},0.35)`, scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent', caretColor: pairing.theme_color }} />
                   <button onClick={saveLog}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:scale-[1.01] active:scale-95"
+                    className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:scale-[1.01] active:scale-95"
                     style={{ background: `rgba(${rgb},0.45)`, border: `1px solid rgba(${rgb},0.7)` }}>
                     <Check className="w-4 h-4" /> 저장
                   </button>
                 </>
               ) : (
                 <>
-                  <div className="flex-1 overflow-y-auto rounded-xl px-4 py-3"
-                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', minHeight: 160, maxHeight: 320, scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}>
+                  <div className="overflow-y-auto rounded-xl px-4 py-3"
+                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', minHeight: 120, maxHeight: 'calc(100vh - 300px)', scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}>
                     {hasNote ? (
                       <p className="text-white/80 whitespace-pre-wrap leading-[2.0]"
                         style={{ fontSize: 'clamp(13px, 1.3vw, 16px)', fontFamily: '"Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif' }}>
@@ -821,7 +863,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
                     )}
                   </div>
                   <button onClick={() => setEditingLog(true)}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 py-2.5 rounded-xl text-white/60 text-sm font-semibold border border-white/10 hover:border-white/22 hover:text-white transition-all hover:scale-[1.01] active:scale-95"
+                    className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-white/60 text-sm font-semibold border border-white/10 hover:border-white/22 hover:text-white transition-all hover:scale-[1.01] active:scale-95"
                     style={{ background: 'rgba(255,255,255,0.04)' }}>
                     <Pencil className="w-3.5 h-3.5" />
                     {hasNote ? '로그 편집' : '로그 작성'}
