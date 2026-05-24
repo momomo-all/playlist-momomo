@@ -4,7 +4,7 @@ import {
   RotateCw, Maximize2, Download, Pencil, Check, X,
 } from 'lucide-react';
 import {
-  getVinylData, saveVinylData, VinylData, ElementTransform,
+  getVinylData, saveVinylData, VinylData, ElementTransform, XY,
   DEFAULT_TRANSFORM, DEFAULT_LABEL,
   saveCover, resolveCoverUrl,
 } from '../lib/localDb';
@@ -83,6 +83,33 @@ function useDrag(enabled: boolean, onMove: (dx: number, dy: number) => void) {
   }, [enabled, onMove]);
 
   return { onMouseDown, onTouchStart };
+}
+
+/* ── absolute-position drag hook ── */
+// onDrag receives delta (dx, dy); caller accumulates position.
+function useAbsDrag(onDrag: (dx: number, dy: number) => void) {
+  const last = useRef({ x: 0, y: 0 });
+  const onDragRef = useRef(onDrag);
+  onDragRef.current = onDrag;
+
+  return useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    last.current = { x: e.clientX, y: e.clientY };
+
+    const move = (me: MouseEvent) => {
+      const dx = me.clientX - last.current.x;
+      const dy = me.clientY - last.current.y;
+      onDragRef.current(dx, dy);
+      last.current = { x: me.clientX, y: me.clientY };
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  }, []);
 }
 
 /* ── PNG export ── */
@@ -249,7 +276,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
   const [jacketUrl, setJacketUrl] = useState('');
   const [bgUrl,     setBgUrl]     = useState('');
   const [showCustom,  setShowCustom]  = useState(false);
-  const [showLog,     setShowLog]     = useState(false);
+  const [showLog,     setShowLog]     = useState(true);
   const [editingLog,  setEditingLog]  = useState(false);
   const [logDraft,    setLogDraft]    = useState('');
   const [exporting,   setExporting]   = useState(false);
@@ -257,10 +284,13 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
   const [titleDraft,   setTitleDraft]   = useState('');
   const [jacketOff,    setJacketOff]    = useState({ x: 0, y: 0 });
   const [diskOff,      setDiskOff]      = useState({ x: 0, y: 0 });
-  const [panelPos,     setPanelPos]     = useState<{ x: number; y: number } | null>(null);
+  const [customPanelPos, setCustomPanelPos] = useState<XY | null>(null);
   const [isMobile,     setIsMobile]     = useState(false);
-  const panelDragging  = useRef(false);
-  const panelLast      = useRef({ x: 0, y: 0 });
+
+  // free-floating text positions (null = use defaults)
+  const [nowPlayingPos, setNowPlayingPos] = useState<XY | null>(null);
+  const [titlePos,      setTitlePos]      = useState<XY | null>(null);
+  const [notePos,       setNotePos]       = useState<XY | null>(null);
 
   const jacketInputRef = useRef<HTMLInputElement>(null);
   const bgInputRef     = useRef<HTMLInputElement>(null);
@@ -274,8 +304,12 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
   }, []);
 
   useEffect(() => {
-    setJacketOff({ x: vd.jacketTransform.x, y: vd.jacketTransform.y });
-    setDiskOff({ x: vd.diskTransform.x, y: vd.diskTransform.y });
+    const d = getVinylData(pairing.id);
+    setJacketOff({ x: d.jacketTransform.x, y: d.jacketTransform.y });
+    setDiskOff({ x: d.diskTransform.x, y: d.diskTransform.y });
+    setNowPlayingPos(d.nowPlayingPos ?? null);
+    setTitlePos(d.titlePos ?? null);
+    setNotePos(d.notePos ?? null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pairing.id]);
 
@@ -355,51 +389,44 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
     }
   };
 
-  const onPanelMouseDown = useCallback((e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('textarea,button,input,a')) return;
-    e.preventDefault();
-    panelDragging.current = true;
-    panelLast.current = { x: e.clientX, y: e.clientY };
-    // On first drag, convert from right-anchored to left/top absolute
-    setPanelPos(prev => {
-      if (prev) return prev;
-      const w = showCustom ? 340 : 420;
-      return { x: window.innerWidth - 28 - w, y: 80 };
+  // drag handlers for free-floating text elements
+  const nowPlayingDrag = useAbsDrag(useCallback((dx, dy) => {
+    setNowPlayingPos(prev => {
+      const def = { x: window.innerWidth - 420, y: Math.round(window.innerHeight * 0.42) };
+      const cur = prev ?? def;
+      const next = { x: cur.x + dx, y: cur.y + dy };
+      setVd(v => { const u = { ...v, nowPlayingPos: next }; saveVinylData(pairing.id, u); return u; });
+      return next;
     });
-    const move = (me: MouseEvent) => {
-      if (!panelDragging.current) return;
-      const dx = me.clientX - panelLast.current.x;
-      const dy = me.clientY - panelLast.current.y;
-      setPanelPos(prev => prev ? { x: prev.x + dx, y: prev.y + dy } : prev);
-      panelLast.current = { x: me.clientX, y: me.clientY };
-    };
-    const up = () => { panelDragging.current = false; window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
-    window.addEventListener('mousemove', move);
-    window.addEventListener('mouseup', up);
-  }, [showCustom]);
+  }, [pairing.id]));
 
-  const onPanelTouchStart = useCallback((e: React.TouchEvent) => {
-    if ((e.target as HTMLElement).closest('textarea,button,input,a')) return;
-    const t = e.touches[0];
-    panelDragging.current = true;
-    panelLast.current = { x: t.clientX, y: t.clientY };
-    setPanelPos(prev => {
-      if (prev) return prev;
-      const w = showCustom ? 340 : 420;
-      return { x: window.innerWidth - 28 - w, y: 80 };
+  const titleDrag = useAbsDrag(useCallback((dx, dy) => {
+    setTitlePos(prev => {
+      const def = { x: window.innerWidth - 420, y: Math.round(window.innerHeight * 0.48) };
+      const cur = prev ?? def;
+      const next = { x: cur.x + dx, y: cur.y + dy };
+      setVd(v => { const u = { ...v, titlePos: next }; saveVinylData(pairing.id, u); return u; });
+      return next;
     });
-    const move = (te: TouchEvent) => {
-      if (!panelDragging.current) return;
-      const tt = te.touches[0];
-      const dx = tt.clientX - panelLast.current.x;
-      const dy = tt.clientY - panelLast.current.y;
-      setPanelPos(prev => prev ? { x: prev.x + dx, y: prev.y + dy } : prev);
-      panelLast.current = { x: tt.clientX, y: tt.clientY };
-    };
-    const up = () => { panelDragging.current = false; window.removeEventListener('touchmove', move); window.removeEventListener('touchend', up); };
-    window.addEventListener('touchmove', move, { passive: true });
-    window.addEventListener('touchend', up);
-  }, [showCustom]);
+  }, [pairing.id]));
+
+  const noteDrag = useAbsDrag(useCallback((dx, dy) => {
+    setNotePos(prev => {
+      const def = { x: window.innerWidth - 420, y: Math.round(window.innerHeight * 0.56) };
+      const cur = prev ?? def;
+      const next = { x: cur.x + dx, y: cur.y + dy };
+      setVd(v => { const u = { ...v, notePos: next }; saveVinylData(pairing.id, u); return u; });
+      return next;
+    });
+  }, [pairing.id]));
+
+  // drag for the customize floating panel header
+  const customPanelDrag = useAbsDrag(useCallback((dx, dy) => {
+    setCustomPanelPos(prev => {
+      const cur = prev ?? { x: window.innerWidth - 380, y: 80 };
+      return { x: cur.x + dx, y: cur.y + dy };
+    });
+  }, []));
 
   const jacketDrag = useDrag(true, useCallback((dx, dy) => {
     setJacketOff(prev => {
@@ -650,6 +677,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
       </div>
 
       {/* Top nav */}
+      {/* ── Top nav ── */}
       <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between px-7 pt-6">
         <button onClick={onBack}
           className="group flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-black/40 hover:bg-black/60 border border-white/12 hover:border-white/25 text-white backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95">
@@ -666,7 +694,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
           </button>
 
           <button
-            onClick={() => { setPanelPos(null); setShowLog(v => !v); setShowCustom(false); setEditingLog(false); }}
+            onClick={() => { setShowLog(v => !v); setShowCustom(false); setEditingLog(false); }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border text-white text-sm font-semibold backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95"
             style={showLog
               ? { background: `rgba(${rgb},0.38)`, borderColor: `rgba(${rgb},0.65)`, boxShadow: `0 0 20px rgba(${rgb},0.3)` }
@@ -676,7 +704,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
           </button>
 
           <button
-            onClick={() => { setPanelPos(null); setShowCustom(v => !v); setShowLog(false); setEditingLog(false); }}
+            onClick={() => { setCustomPanelPos(null); setShowCustom(v => !v); setShowLog(false); setEditingLog(false); }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border text-white text-sm font-semibold backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95"
             style={showCustom
               ? { background: `rgba(${rgb},0.38)`, borderColor: `rgba(${rgb},0.65)`, boxShadow: `0 0 20px rgba(${rgb},0.3)` }
@@ -687,234 +715,199 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
         </div>
       </div>
 
-      {/* Vinyl scene — full screen, centered */}
+      {/* ── JACKET — absolute draggable ── */}
       <div
         ref={sceneRef}
-        className="absolute inset-0 flex items-center justify-center"
-        style={{ zIndex: 10, paddingTop: 72 }}>
-
-        <div className="relative flex items-center"
-          style={{ width: 'min(68%, 800px)', aspectRatio: '1.55' }}>
-
-          {/* JACKET */}
-          <div
-            className="absolute cursor-grab active:cursor-grabbing"
-            style={{
-              width: '46%', aspectRatio: '1',
-              left: '2%', top: '50%', zIndex: 4,
-              transform: `translateY(-50%) translate(${jacketOff.x}px, ${jacketOff.y}px) scale(${vd.jacketTransform.scale}) rotate(${vd.jacketTransform.rotate}deg)`,
-              userSelect: 'none',
-            }}
-            {...jacketDrag}
-          >
-            <div className="w-full h-full rounded-2xl relative" style={{ boxShadow: `0 40px 100px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.08), 0 0 50px rgba(${rgb},0.2)` }}>
-              {jacketUrl
-                ? <img src={jacketUrl} alt={pairing.name} className="w-full h-full object-cover rounded-2xl pointer-events-none" draggable={false} />
-                : <div className="w-full h-full rounded-2xl" style={{ background: `linear-gradient(135deg, ${pairing.theme_color}, #111)` }} />
-              }
-              <div className="absolute inset-0 rounded-2xl pointer-events-none"
-                style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.07) 0%, transparent 50%)' }} />
-            </div>
-            {showCustom && (
-              <button
-                onClick={() => jacketInputRef.current?.click()}
-                className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-2xl text-white opacity-0 hover:opacity-100 transition-opacity z-10"
-                style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
-                onMouseDown={e => e.stopPropagation()}>
-                <Upload className="w-5 h-5" />
-                <span className="text-xs font-semibold">자켓 사진 변경</span>
-              </button>
-            )}
-          </div>
-
-          {/* LP DISC */}
-          <div className="absolute cursor-grab active:cursor-grabbing"
-            style={{
-              width: '65%', aspectRatio: '1',
-              right: '0%', top: '50%', zIndex: 3,
-              transform: `translateY(-50%) translate(${diskOff.x}px, ${diskOff.y}px) scale(${vd.diskTransform.scale}) rotate(${vd.diskTransform.rotate}deg)`,
-              userSelect: 'none',
-            }}
-            {...diskDrag}
-          >
-            <div className="w-full h-full rounded-full relative"
-              style={{
-                animation: 'vinyl-spin 4s linear infinite',
-                boxShadow: `0 30px 100px rgba(0,0,0,0.88), 0 0 0 2px rgba(255,255,255,0.07), 0 0 50px rgba(${rgb},0.18)`,
-              }}>
-              <div className="absolute inset-0 rounded-full" style={{ background: diskGradient }} />
-              <div className="absolute inset-0 rounded-full pointer-events-none" style={{
-                background: 'linear-gradient(135deg, rgba(255,255,255,0.10) 0%, transparent 45%, rgba(255,255,255,0.04) 65%, transparent 100%)',
-                mixBlendMode: 'screen',
-              }} />
-              <DiskPattern id={vd.patternTheme as PatternId} color="rgba(255,255,255,0.9)" />
-              <div className="absolute inset-0 rounded-full pointer-events-none" style={{
-                background: 'radial-gradient(circle at 50% 50%, transparent 60%, rgba(0,0,0,0.45) 100%)',
-              }} />
-              <div className="absolute rounded-full" style={{ width: '30%', height: '30%', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: 'radial-gradient(circle, #1e1e1e, #0a0a0a)', boxShadow: '0 0 0 2.5px rgba(255,255,255,0.2)', zIndex: 2 }}>
-                <div className="w-full h-full flex items-center justify-center px-1.5 py-1.5">
-                  <p className="leading-tight break-words w-full"
-                    style={{ fontSize: ls.fontSize, color: ls.color, fontFamily: ls.fontFamily, fontWeight: 700, textAlign: ls.textAlign as 'center' | 'left' | 'right', wordBreak: 'break-word' }}>
-                    {ls.text || displayTitle}
-                  </p>
-                </div>
-                <div className="absolute w-[13%] h-[13%] rounded-full bg-zinc-200/70"
-                  style={{ top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 3 }} />
-              </div>
-            </div>
-            <div className="absolute inset-0 rounded-full pointer-events-none" style={{
-              background: 'linear-gradient(130deg, rgba(255,255,255,0.08) 0%, transparent 45%)',
-            }} />
-          </div>
+        className="absolute cursor-grab active:cursor-grabbing"
+        style={{
+          zIndex: 14,
+          width: 'min(34%, 370px)', aspectRatio: '1',
+          left: '15%', top: '50%',
+          transform: `translateY(-50%) translate(${jacketOff.x}px, ${jacketOff.y}px) scale(${vd.jacketTransform.scale}) rotate(${vd.jacketTransform.rotate}deg)`,
+          userSelect: 'none',
+        }}
+        {...jacketDrag}
+      >
+        <div className="w-full h-full rounded-2xl relative"
+          style={{ boxShadow: `0 40px 100px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.08), 0 0 50px rgba(${rgb},0.2)` }}>
+          {jacketUrl
+            ? <img src={jacketUrl} alt={pairing.name} className="w-full h-full object-cover rounded-2xl pointer-events-none" draggable={false} />
+            : <div className="w-full h-full rounded-2xl" style={{ background: `linear-gradient(135deg, ${pairing.theme_color}, #111)` }} />
+          }
+          <div className="absolute inset-0 rounded-2xl pointer-events-none"
+            style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.07) 0%, transparent 50%)' }} />
         </div>
+        {showCustom && (
+          <button
+            onClick={() => jacketInputRef.current?.click()}
+            className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-2xl text-white opacity-0 hover:opacity-100 transition-opacity z-10"
+            style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+            onMouseDown={e => e.stopPropagation()}>
+            <Upload className="w-5 h-5" />
+            <span className="text-xs font-semibold">자켓 사진 변경</span>
+          </button>
+        )}
       </div>
 
-      {/* NOW PLAYING — title + note, right side overlay */}
-      {!showLog && (
-        <div className="absolute z-20" style={{ right: 56, top: '50%', transform: 'translateY(-50%)', maxWidth: 360, paddingTop: 36 }}>
-          <p className="text-white/30 text-[10px] uppercase tracking-[0.25em] mb-3 select-none">Now Playing</p>
-          <div className="flex items-center gap-2 group" style={{ cursor: 'text' }}
-            onClick={() => { setTitleDraft(displayTitle); setEditingTitle(true); }}>
-            {editingTitle ? (
-              <form onSubmit={e => { e.preventDefault(); update({ title: titleDraft }); setEditingTitle(false); }}
-                onClick={e => e.stopPropagation()}>
-                <input autoFocus value={titleDraft} onChange={e => setTitleDraft(e.target.value)}
-                  onBlur={() => { update({ title: titleDraft }); setEditingTitle(false); }}
-                  onKeyDown={e => e.key === 'Escape' && setEditingTitle(false)}
-                  className="bg-transparent border-b text-white font-bold tracking-tight focus:outline-none"
-                  style={{ fontSize: 'clamp(24px, 2.8vw, 44px)', borderColor: `rgba(${rgb},0.6)`, caretColor: pairing.theme_color, width: '12ch' }} />
-              </form>
-            ) : (
-              <>
-                <h1 className="text-white font-bold tracking-tight leading-none"
-                  style={{ fontSize: 'clamp(24px, 2.8vw, 44px)' }}>
-                  {displayTitle}
-                </h1>
-                <Pencil className="w-3.5 h-3.5 text-white/0 group-hover:text-white/35 transition-colors flex-shrink-0" />
-              </>
-            )}
+      {/* ── LP DISC — absolute draggable ── */}
+      <div
+        className="absolute cursor-grab active:cursor-grabbing"
+        style={{
+          zIndex: 13,
+          width: 'min(46%, 500px)', aspectRatio: '1',
+          left: '33%', top: '50%',
+          transform: `translateY(-50%) translate(${diskOff.x}px, ${diskOff.y}px) scale(${vd.diskTransform.scale}) rotate(${vd.diskTransform.rotate}deg)`,
+          userSelect: 'none',
+        }}
+        {...diskDrag}
+      >
+        <div className="w-full h-full rounded-full relative"
+          style={{
+            animation: 'vinyl-spin 4s linear infinite',
+            boxShadow: `0 30px 100px rgba(0,0,0,0.88), 0 0 0 2px rgba(255,255,255,0.07), 0 0 50px rgba(${rgb},0.18)`,
+          }}>
+          <div className="absolute inset-0 rounded-full" style={{ background: diskGradient }} />
+          <div className="absolute inset-0 rounded-full pointer-events-none" style={{
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.10) 0%, transparent 45%, rgba(255,255,255,0.04) 65%, transparent 100%)',
+            mixBlendMode: 'screen',
+          }} />
+          <DiskPattern id={vd.patternTheme as PatternId} color="rgba(255,255,255,0.9)" />
+          <div className="absolute inset-0 rounded-full pointer-events-none" style={{
+            background: 'radial-gradient(circle at 50% 50%, transparent 60%, rgba(0,0,0,0.45) 100%)',
+          }} />
+          <div className="absolute rounded-full" style={{ width: '30%', height: '30%', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: 'radial-gradient(circle, #1e1e1e, #0a0a0a)', boxShadow: '0 0 0 2.5px rgba(255,255,255,0.2)', zIndex: 2 }}>
+            <div className="w-full h-full flex items-center justify-center px-1.5 py-1.5">
+              <p className="leading-tight break-words w-full"
+                style={{ fontSize: ls.fontSize, color: ls.color, fontFamily: ls.fontFamily, fontWeight: 700, textAlign: ls.textAlign as 'center' | 'left' | 'right', wordBreak: 'break-word' }}>
+                {ls.text || displayTitle}
+              </p>
+            </div>
+            <div className="absolute w-[13%] h-[13%] rounded-full bg-zinc-200/70"
+              style={{ top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 3 }} />
           </div>
-          {hasNote && (
-            <p className="mt-5 text-white/50 leading-[1.95] whitespace-pre-wrap"
-              style={{ fontSize: 'clamp(12px, 1.05vw, 15px)', fontFamily: '"Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif' }}>
+        </div>
+        <div className="absolute inset-0 rounded-full pointer-events-none" style={{
+          background: 'linear-gradient(130deg, rgba(255,255,255,0.08) 0%, transparent 45%)',
+        }} />
+      </div>
+
+      {/* ── NOW PLAYING label — independent draggable ── */}
+      <div
+        className="absolute select-none cursor-grab active:cursor-grabbing"
+        style={{
+          zIndex: 20,
+          left: nowPlayingPos ? nowPlayingPos.x : undefined,
+          right: nowPlayingPos ? undefined : 56,
+          top: nowPlayingPos ? nowPlayingPos.y : '38%',
+          userSelect: 'none',
+        }}
+        onMouseDown={nowPlayingDrag}
+      >
+        <p className="text-white/30 text-[10px] font-semibold uppercase tracking-[0.28em] pointer-events-none">
+          Now Playing
+        </p>
+      </div>
+
+      {/* ── TITLE — independent draggable, double-click to edit ── */}
+      <div
+        className="absolute cursor-grab active:cursor-grabbing"
+        style={{
+          zIndex: 20,
+          left: titlePos ? titlePos.x : undefined,
+          right: titlePos ? undefined : 56,
+          top: titlePos ? titlePos.y : '42%',
+          userSelect: 'none',
+          maxWidth: 380,
+        }}
+        onMouseDown={editingTitle ? undefined : titleDrag}
+      >
+        {editingTitle ? (
+          <form onSubmit={e => { e.preventDefault(); update({ title: titleDraft }); setEditingTitle(false); }}>
+            <input autoFocus value={titleDraft} onChange={e => setTitleDraft(e.target.value)}
+              onBlur={() => { update({ title: titleDraft }); setEditingTitle(false); }}
+              onKeyDown={e => e.key === 'Escape' && setEditingTitle(false)}
+              className="bg-transparent border-b text-white font-bold tracking-tight focus:outline-none"
+              style={{ fontSize: 'clamp(24px, 2.8vw, 44px)', borderColor: `rgba(${rgb},0.6)`, caretColor: pairing.theme_color, width: '14ch' }} />
+          </form>
+        ) : (
+          <h1
+            className="text-white font-bold tracking-tight leading-none group"
+            style={{ fontSize: 'clamp(24px, 2.8vw, 44px)', cursor: 'grab' }}
+            onDoubleClick={() => { setTitleDraft(displayTitle); setEditingTitle(true); }}
+          >
+            {displayTitle}
+          </h1>
+        )}
+      </div>
+
+      {/* ── NOTE TEXT — independent draggable, visible when showLog is on ── */}
+      {showLog && (
+        <div
+          className="absolute cursor-grab active:cursor-grabbing"
+          style={{
+            zIndex: 20,
+            left: notePos ? notePos.x : undefined,
+            right: notePos ? undefined : 56,
+            top: notePos ? notePos.y : '54%',
+            maxWidth: 380,
+            userSelect: 'none',
+          }}
+          onMouseDown={editingLog ? undefined : noteDrag}
+        >
+          {editingLog ? (
+            <div style={{ minWidth: 340 }}>
+              <textarea autoFocus value={logDraft} onChange={e => setLogDraft(e.target.value)}
+                placeholder="가사나 대화 로그를 자유롭게 기록해보세요..."
+                rows={8}
+                className="w-full rounded-xl px-4 py-3 text-white/80 text-sm leading-[1.9] resize-none focus:outline-none"
+                style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid rgba(${rgb},0.30)`, scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent', caretColor: pairing.theme_color, backdropFilter: 'blur(16px)' }}
+                onMouseDown={e => e.stopPropagation()} />
+              <button onClick={saveLog} onMouseDown={e => e.stopPropagation()}
+                className="mt-2 flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold transition-all hover:scale-[1.01] active:scale-95"
+                style={{ background: `rgba(${rgb},0.42)`, border: `1px solid rgba(${rgb},0.65)` }}>
+                <Check className="w-4 h-4" /> 저장
+              </button>
+            </div>
+          ) : hasNote ? (
+            <p
+              className="text-white/65 leading-[2.05] whitespace-pre-wrap"
+              style={{ fontSize: 'clamp(12px, 1.1vw, 15px)', fontFamily: '"Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif' }}
+              onDoubleClick={() => { setLogDraft(vd.note || ''); setEditingLog(true); }}
+            >
               {vd.note}
+            </p>
+          ) : (
+            <p
+              className="text-white/20 text-sm italic"
+              style={{ cursor: 'text' }}
+              onDoubleClick={() => { setLogDraft(''); setEditingLog(true); }}
+            >
+              더블클릭해서 로그를 작성하세요...
             </p>
           )}
         </div>
       )}
 
-      {/* ── LOG floating draggable panel ── */}
-      {showLog && (
-        <div
-          className="absolute z-30 rounded-2xl"
-          style={{
-            width: 420,
-            top: panelPos ? panelPos.y : 80,
-            left: panelPos ? panelPos.x : undefined,
-            right: panelPos ? undefined : 40,
-            background: 'rgba(8,8,10,0.72)',
-            backdropFilter: 'blur(32px)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            boxShadow: '0 8px 48px rgba(0,0,0,0.55)',
-          }}
-          onMouseDown={onPanelMouseDown}
-          onTouchStart={onPanelTouchStart}
-        >
-          {/* drag handle — only this area drags */}
-          <div
-            className="flex items-center justify-between px-5 pt-4 pb-3 select-none cursor-grab active:cursor-grabbing"
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
-          >
-            <div className="flex items-center gap-2.5">
-              <div className="flex gap-1">
-                <span className="w-2 h-2 rounded-full" style={{ background: 'rgba(255,255,255,0.12)' }} />
-                <span className="w-2 h-2 rounded-full" style={{ background: 'rgba(255,255,255,0.12)' }} />
-                <span className="w-2 h-2 rounded-full" style={{ background: 'rgba(255,255,255,0.12)' }} />
-              </div>
-              <span className="text-white/30 text-[10px] font-semibold uppercase tracking-[0.2em] select-none">LOG</span>
-            </div>
-            <div className="flex items-center gap-3 pointer-events-auto" onMouseDown={e => e.stopPropagation()}>
-              {editingTitle ? (
-                <form onSubmit={e => { e.preventDefault(); update({ title: titleDraft }); setEditingTitle(false); }}>
-                  <input autoFocus value={titleDraft} onChange={e => setTitleDraft(e.target.value)}
-                    onBlur={() => { update({ title: titleDraft }); setEditingTitle(false); }}
-                    onKeyDown={e => e.key === 'Escape' && setEditingTitle(false)}
-                    className="bg-transparent border-b text-white text-sm font-bold tracking-tight focus:outline-none"
-                    style={{ borderColor: `rgba(${rgb},0.6)`, caretColor: pairing.theme_color, width: 160 }} />
-                </form>
-              ) : (
-                <button onClick={() => { setTitleDraft(displayTitle); setEditingTitle(true); }}
-                  className="group flex items-center gap-1.5">
-                  <span className="text-white/60 text-sm font-semibold truncate max-w-[160px]">{displayTitle}</span>
-                  <Pencil className="w-3 h-3 text-white/0 group-hover:text-white/40 transition-colors" />
-                </button>
-              )}
-              <button onClick={() => { setShowLog(false); setEditingLog(false); }}
-                className="text-white/25 hover:text-white/60 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* body — not draggable */}
-          <div onMouseDown={e => e.stopPropagation()}>
-            {editingLog ? (
-              <div className="px-5 py-4 flex flex-col gap-3">
-                <textarea autoFocus value={logDraft} onChange={e => setLogDraft(e.target.value)}
-                  placeholder="가사나 대화 로그를 자유롭게 기록해보세요..."
-                  rows={10}
-                  className="w-full rounded-xl px-4 py-3 text-white/80 text-sm leading-[1.9] resize-none focus:outline-none"
-                  style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid rgba(${rgb},0.30)`, scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent', caretColor: pairing.theme_color }} />
-                <button onClick={saveLog}
-                  className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:scale-[1.01] active:scale-95"
-                  style={{ background: `rgba(${rgb},0.42)`, border: `1px solid rgba(${rgb},0.65)` }}>
-                  <Check className="w-4 h-4" /> 저장
-                </button>
-              </div>
-            ) : (
-              <div className="px-5 py-4 flex flex-col gap-3">
-                <div style={{ maxHeight: 'calc(100vh - 280px)', overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}>
-                  {hasNote ? (
-                    <p className="text-white/75 whitespace-pre-wrap leading-[2.1]"
-                      style={{ fontSize: 'clamp(13px, 1.15vw, 16px)', fontFamily: '"Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif' }}>
-                      {vd.note}
-                    </p>
-                  ) : (
-                    <p className="text-white/20 text-sm italic py-2">아직 작성된 로그가 없습니다.</p>
-                  )}
-                </div>
-                <button onClick={() => setEditingLog(true)}
-                  className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-white/50 text-sm font-semibold transition-all hover:text-white/80 active:scale-95"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <Pencil className="w-3.5 h-3.5" />
-                  {hasNote ? '로그 편집' : '로그 작성'}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── CUSTOMIZE floating panel ── */}
+      {/* ── CUSTOMIZE floating panel — header-draggable ── */}
       {showCustom && (
         <div
           className="absolute z-30 rounded-2xl"
           style={{
             width: 340,
-            top: panelPos ? panelPos.y : 80,
-            left: panelPos ? panelPos.x : undefined,
-            right: panelPos ? undefined : 40,
-            background: 'rgba(8,8,10,0.72)',
+            top: customPanelPos ? customPanelPos.y : 80,
+            left: customPanelPos ? customPanelPos.x : undefined,
+            right: customPanelPos ? undefined : 40,
+            background: 'rgba(8,8,10,0.80)',
             backdropFilter: 'blur(32px)',
             border: '1px solid rgba(255,255,255,0.08)',
             boxShadow: '0 8px 48px rgba(0,0,0,0.55)',
           }}
-          onMouseDown={onPanelMouseDown}
-          onTouchStart={onPanelTouchStart}
         >
           <div
             className="flex items-center justify-between px-5 pt-4 pb-3 select-none cursor-grab active:cursor-grabbing"
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+            onMouseDown={customPanelDrag}
+          >
             <div className="flex items-center gap-2.5">
               <div className="flex gap-1">
                 <span className="w-2 h-2 rounded-full" style={{ background: 'rgba(255,255,255,0.12)' }} />
@@ -928,9 +921,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
               <X className="w-4 h-4" />
             </button>
           </div>
-          <div
-            onMouseDown={e => e.stopPropagation()}
-            style={{ maxHeight: 'calc(100vh - 160px)', overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}>
+          <div style={{ maxHeight: 'calc(100vh - 160px)', overflowY: 'auto', scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}>
             <div className="px-4 py-4 space-y-6">
               <CustomPanel vd={vd} update={update} updateJacket={updateJacket} updateDisk={updateDisk}
                 rgb={rgb} onJacketUpload={() => jacketInputRef.current?.click()}

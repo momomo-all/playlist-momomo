@@ -209,6 +209,8 @@ export interface LabelStyle {
   color: string;
 }
 
+export interface XY { x: number; y: number; }
+
 export interface VinylData {
   title: string;
   note: string;
@@ -229,6 +231,10 @@ export interface VinylData {
   bgCoverId: string;
   bgBlur: number;
   bgOpacity: number;
+  // free-floating text positions (vw/vh percentages stored as px at time of save)
+  nowPlayingPos: XY | null;
+  titlePos: XY | null;
+  notePos: XY | null;
 }
 
 function vinylKey(pairingId: string) { return `vinyl_data_${pairingId}`; }
@@ -246,6 +252,7 @@ const DEFAULT_VINYL: VinylData = {
   diskTransform: { ...DEFAULT_TRANSFORM },
   labelStyle: { ...DEFAULT_LABEL },
   bgCoverId: '', bgBlur: 90, bgOpacity: 88,
+  nowPlayingPos: null, titlePos: null, notePos: null,
 };
 
 export { DEFAULT_TRANSFORM, DEFAULT_LABEL };
