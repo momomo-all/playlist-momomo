@@ -842,5 +842,4 @@ function SliderRow({ icon, label, min, max, step = 1, value, onChange, unit = ''
 export default VinylPage
 
 
-
 export default VinylPage
