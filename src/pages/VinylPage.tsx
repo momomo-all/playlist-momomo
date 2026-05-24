@@ -686,12 +686,12 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
         </button>
 
         <div className="flex items-center gap-2">
-          <button onClick={handleExport} disabled={exporting}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border text-white text-sm font-semibold backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
-            style={{ background: 'rgba(0,0,0,0.38)', borderColor: 'rgba(255,255,255,0.12)' }}>
-            <Download className="w-4 h-4" />
-            {exporting ? '저장 중...' : 'PNG 저장'}
-          </button>
+  {/* <button onClick={handleExport} disabled={exporting}
+    className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border text-white text-sm font-semibold backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+    style={{ background: 'rgba(0,0,0,0.38)', borderColor: 'rgba(255,255,255,0.12)' }}>
+    <Download className="w-4 h-4" />
+    {exporting ? '저장 중...' : 'PNG 저장'}
+  </button> */}
 
           <button
             onClick={() => { setShowLog(v => !v); setShowCustom(false); setEditingLog(false); }}
