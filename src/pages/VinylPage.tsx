@@ -483,11 +483,10 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
             <span className="text-sm font-semibold">돌아가기</span>
           </button>
           <div className="flex items-center gap-2">
-            <button
+           <button
   onClick={handleExport}
   disabled={exporting}
-  className="hidden flex items-center gap-1.5 px-3 py-2 rounded-xl border text-white text-sm backdrop-blur-md active:scale-95 disabled:opacity-50"
-  style={{ ... }}>
+  className="hidden flex items-center gap-1.5 px-3 py-2 rounded-xl border text-white text-sm backdrop-blur-md active:scale-95 disabled:opacity-50">
   <Download className="w-4 h-4" />
 </button>
             <button
