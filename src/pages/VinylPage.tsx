@@ -302,7 +302,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
 
   const panelDragEnabled = !editingLog && !editingTitle && !showCustom;
   const panelDrag = useDrag(panelDragEnabled, useCallback((dx, dy) => {
-    setPanelOff(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+    setPanelOff(prev => ({ x: Math.max(0, prev.x + dx), y: prev.y + dy }));
   }, []));
 
   const rgb = hexToRgb(pairing.theme_color || '#1a1a2e');
@@ -838,5 +838,8 @@ function SliderRow({ icon, label, min, max, step = 1, value, onChange, unit = ''
     </div>
   );
 }
+
+export default VinylPage
+
 
 export default VinylPage
