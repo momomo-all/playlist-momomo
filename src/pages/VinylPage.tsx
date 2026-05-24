@@ -484,12 +484,12 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
           </button>
           <div className="flex items-center gap-2">
             <button
-              onClick={handleExport}
-              disabled={exporting}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-white text-sm backdrop-blur-md active:scale-95 disabled:opacity-50"
-              style={{ background: 'rgba(0,0,0,0.38)', borderColor: 'rgba(255,255,255,0.12)' }}>
-              <Download className="w-4 h-4" />
-            </button>
+  onClick={handleExport}
+  disabled={exporting}
+  className="hidden flex items-center gap-1.5 px-3 py-2 rounded-xl border text-white text-sm backdrop-blur-md active:scale-95 disabled:opacity-50"
+  style={{ ... }}>
+  <Download className="w-4 h-4" />
+</button>
             <button
               onClick={() => { setShowLog(v => !v); setShowCustom(false); }}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-white text-sm backdrop-blur-md active:scale-95"
