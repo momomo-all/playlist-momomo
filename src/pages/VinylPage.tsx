@@ -216,8 +216,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
   const [titleDraft,   setTitleDraft]   = useState('');
   const [jacketOff,    setJacketOff]    = useState({ x: 0, y: 0 });
   const [diskOff,      setDiskOff]      = useState({ x: 0, y: 0 });
-  const [panelPos,     setPanelPos]     = useState({ x: 0, y: 0 });
-  const [panelMoved,   setPanelMoved]   = useState(false);
+  const [panelPos,     setPanelPos]     = useState<{ x: number; y: number } | null>(null);
   const [isMobile,     setIsMobile]     = useState(false);
   const panelDragging  = useRef(false);
   const panelLast      = useRef({ x: 0, y: 0 });
@@ -317,33 +316,46 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
     e.preventDefault();
     panelDragging.current = true;
     panelLast.current = { x: e.clientX, y: e.clientY };
+    // On first drag, convert from right-anchored to left/top absolute
+    setPanelPos(prev => {
+      if (prev) return prev;
+      const w = showCustom ? 340 : 420;
+      return { x: window.innerWidth - 28 - w, y: 80 };
+    });
     const move = (me: MouseEvent) => {
       if (!panelDragging.current) return;
-      setPanelPos(prev => ({ x: prev.x + me.clientX - panelLast.current.x, y: prev.y + me.clientY - panelLast.current.y }));
-      setPanelMoved(true);
+      const dx = me.clientX - panelLast.current.x;
+      const dy = me.clientY - panelLast.current.y;
+      setPanelPos(prev => prev ? { x: prev.x + dx, y: prev.y + dy } : prev);
       panelLast.current = { x: me.clientX, y: me.clientY };
     };
     const up = () => { panelDragging.current = false; window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
     window.addEventListener('mousemove', move);
     window.addEventListener('mouseup', up);
-  }, []);
+  }, [showCustom]);
 
   const onPanelTouchStart = useCallback((e: React.TouchEvent) => {
     if ((e.target as HTMLElement).closest('textarea,button,input,a')) return;
     const t = e.touches[0];
     panelDragging.current = true;
     panelLast.current = { x: t.clientX, y: t.clientY };
+    setPanelPos(prev => {
+      if (prev) return prev;
+      const w = showCustom ? 340 : 420;
+      return { x: window.innerWidth - 28 - w, y: 80 };
+    });
     const move = (te: TouchEvent) => {
       if (!panelDragging.current) return;
       const tt = te.touches[0];
-      setPanelPos(prev => ({ x: prev.x + tt.clientX - panelLast.current.x, y: prev.y + tt.clientY - panelLast.current.y }));
-      setPanelMoved(true);
+      const dx = tt.clientX - panelLast.current.x;
+      const dy = tt.clientY - panelLast.current.y;
+      setPanelPos(prev => prev ? { x: prev.x + dx, y: prev.y + dy } : prev);
       panelLast.current = { x: tt.clientX, y: tt.clientY };
     };
     const up = () => { panelDragging.current = false; window.removeEventListener('touchmove', move); window.removeEventListener('touchend', up); };
     window.addEventListener('touchmove', move, { passive: true });
     window.addEventListener('touchend', up);
-  }, []);
+  }, [showCustom]);
 
   const jacketDrag = useDrag(true, useCallback((dx, dy) => {
     setJacketOff(prev => {
@@ -610,7 +622,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
           </button>
 
           <button
-            onClick={() => { setShowLog(v => { if (!v) { setPanelPos({ x: 0, y: 0 }); setPanelMoved(false); } return !v; }); setShowCustom(false); if (showLog) setEditingLog(false); }}
+            onClick={() => { setPanelPos(null); setShowLog(v => !v); setShowCustom(false); setEditingLog(false); }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border text-white text-sm font-semibold backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95"
             style={showLog
               ? { background: `rgba(${rgb},0.38)`, borderColor: `rgba(${rgb},0.65)`, boxShadow: `0 0 20px rgba(${rgb},0.3)` }
@@ -620,7 +632,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
           </button>
 
           <button
-            onClick={() => { setShowCustom(v => { if (!v) { setPanelPos({ x: 0, y: 0 }); setPanelMoved(false); } return !v; }); setShowLog(false); setEditingLog(false); }}
+            onClick={() => { setPanelPos(null); setShowCustom(v => !v); setShowLog(false); setEditingLog(false); }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border text-white text-sm font-semibold backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95"
             style={showCustom
               ? { background: `rgba(${rgb},0.38)`, borderColor: `rgba(${rgb},0.65)`, boxShadow: `0 0 20px rgba(${rgb},0.3)` }
@@ -726,10 +738,9 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
           style={{
             width: showCustom ? 340 : 420,
             maxHeight: 'calc(100vh - 100px)',
-            top: panelMoved ? undefined : 80,
-            right: panelMoved ? undefined : 28,
-            left: panelMoved ? `calc(100% - 28px - ${showCustom ? 340 : 420}px + ${panelPos.x}px)` : undefined,
-            transform: panelMoved ? `translateY(${80 + panelPos.y}px)` : undefined,
+            top: panelPos ? panelPos.y : 80,
+            left: panelPos ? panelPos.x : undefined,
+            right: panelPos ? undefined : 28,
             background: 'rgba(10,10,14,0.88)',
             cursor: panelDragging.current ? 'grabbing' : 'default',
           }}
@@ -823,6 +834,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
       )}
 
       <input ref={jacketInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+      <input ref={bgInputRef} type="file" accept="image/*" className="hidden" onChange={handleBgUpload} />
     </div>
   );
 }
@@ -1073,3 +1085,5 @@ function SliderRow({ icon, label, min, max, step = 1, value, onChange, unit = ''
 }
 
 export default VinylPage;
+
+export default VinylPage
