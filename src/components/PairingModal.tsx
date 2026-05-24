@@ -248,11 +248,11 @@ export default function PairingModal({ pairing, genres, defaultGenreId, initialT
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5 sm:space-y-6">
           {/* Cover + Basic Info */}
-          <div className="flex gap-5">
+          <div className="flex flex-col sm:flex-row gap-4 sm:gap-5">
             <div
-              className="w-28 h-28 flex-shrink-0 rounded-xl border border-white/10 overflow-hidden cursor-pointer relative group"
+              className="w-full sm:w-28 h-36 sm:h-28 flex-shrink-0 rounded-xl border border-white/10 overflow-hidden cursor-pointer relative group"
               style={{ background: themeColor }}
               onClick={() => fileRef.current?.click()}
             >
@@ -261,7 +261,7 @@ export default function PairingModal({ pairing, genres, defaultGenreId, initialT
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center gap-1">
                   <ImageIcon className="w-6 h-6 text-white/30" />
-                  <span className="text-white/30 text-xs">커버</span>
+                  <span className="text-white/30 text-xs">커버 사진</span>
                 </div>
               )}
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

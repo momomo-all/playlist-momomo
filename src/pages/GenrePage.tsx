@@ -158,8 +158,8 @@ export default function GenrePage({ genre, onBack, onSelectPairing }: Props) {
                   </div>
                 )}
 
-                {/* Overlay buttons */}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-2.5">
+                {/* Overlay buttons — always slightly visible on touch devices */}
+                <div className="absolute inset-0 bg-black/20 sm:bg-black/40 sm:opacity-0 sm:group-hover:opacity-100 opacity-100 transition-opacity flex items-end justify-between p-2.5">
                   <button
                     onClick={e => toggleFavorite(pairing, e)}
                     className="w-7 h-7 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 transition-all"
@@ -169,7 +169,7 @@ export default function GenrePage({ genre, onBack, onSelectPairing }: Props) {
                   <div className="relative" onClick={e => e.stopPropagation()}>
                     <button
                       onClick={e => { e.stopPropagation(); setMenuId(menuId === pairing.id ? null : pairing.id); }}
-                      className="w-7 h-7 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 transition-all"
+                      className="w-8 h-8 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 transition-all"
                     >
                       <MoreHorizontal className="w-3.5 h-3.5 text-white" />
                     </button>

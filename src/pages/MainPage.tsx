@@ -134,7 +134,7 @@ export default function MainPage({ onSelectGenre }: Props) {
               <div className="relative" onClick={e => e.stopPropagation()}>
                 <button
                   onClick={e => { e.stopPropagation(); setMenuGenreId(menuGenreId === genre.id ? null : genre.id); }}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 hover:bg-white/10 text-zinc-400 hover:text-white transition-all"
+                  className="w-9 h-9 flex items-center justify-center rounded-lg opacity-40 group-hover:opacity-100 hover:bg-white/10 text-zinc-400 hover:text-white transition-all"
                 >
                   <MoreHorizontal className="w-4 h-4" />
                 </button>

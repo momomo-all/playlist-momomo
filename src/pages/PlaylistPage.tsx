@@ -80,7 +80,7 @@ export default function PlaylistPage({ pairing: initialPairing, genre, onBack, o
       </div>
 
       {/* ── HEADER ── */}
-      <header className="relative z-30 flex items-center justify-between px-6 sm:px-10 pt-8 pb-4">
+      <header className="relative z-30 flex items-center justify-between px-4 sm:px-10 pt-6 sm:pt-8 pb-4">
         <button
           onClick={onBack}
           className="group flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/8 hover:bg-white/15 border border-white/10 hover:border-white/25 text-white transition-all duration-200 hover:scale-[1.02] active:scale-95"
@@ -99,7 +99,7 @@ export default function PlaylistPage({ pairing: initialPairing, genre, onBack, o
             }`}
           >
             <Star className={`w-4 h-4 ${pairing.is_favorite ? 'fill-amber-400' : ''}`} />
-            <span className="hidden sm:inline">{pairing.is_favorite ? '즐겨찾기됨' : '즐겨찾기'}</span>
+            <span className="hidden xs:inline sm:inline">{pairing.is_favorite ? '즐겨찾기됨' : '즐겨찾기'}</span>
           </button>
 
           <button
@@ -113,16 +113,16 @@ export default function PlaylistPage({ pairing: initialPairing, genre, onBack, o
       </header>
 
       {/* ── MAIN CONTENT ── */}
-      <div className="relative z-20 max-w-7xl mx-auto px-6 sm:px-10 py-8">
-        <div className="flex flex-col lg:flex-row gap-10 lg:gap-14 items-start">
+      <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-10 py-6 sm:py-8">
+        <div className="flex flex-col lg:flex-row gap-6 sm:gap-10 lg:gap-14 items-start">
 
           {/* ── LEFT: Album Cover + Meta ── */}
           <div className="w-full lg:w-auto flex-shrink-0 flex flex-col items-center lg:items-start">
             <div
-              className="relative rounded-3xl overflow-hidden shadow-2xl mb-6"
+              className="relative rounded-3xl overflow-hidden shadow-2xl mb-5"
               style={{
-                width: 'clamp(260px, 35vw, 420px)',
-                height: 'clamp(260px, 35vw, 420px)',
+                width: 'clamp(200px, 60vw, 420px)',
+                height: 'clamp(200px, 60vw, 420px)',
                 background: pairing.theme_color,
                 boxShadow: `0 40px 80px rgba(${rgb},0.5), 0 0 0 1px rgba(255,255,255,0.05)`,
               }}
@@ -140,9 +140,9 @@ export default function PlaylistPage({ pairing: initialPairing, genre, onBack, o
             </div>
 
             {/* Title + Description + Tags */}
-            <div className="text-center lg:text-left max-w-sm">
+            <div className="text-center lg:text-left max-w-sm w-full">
               <p className="text-white/40 text-xs uppercase tracking-[0.2em] mb-2">플레이리스트</p>
-              <h1 className="text-white text-3xl sm:text-4xl font-bold tracking-tight mb-3 leading-tight">{pairing.name}</h1>
+              <h1 className="text-white text-2xl sm:text-4xl font-bold tracking-tight mb-3 leading-tight">{pairing.name}</h1>
               {pairing.description && (
                 <p className="text-white/55 text-sm leading-relaxed mb-4">{pairing.description}</p>
               )}
@@ -238,7 +238,7 @@ export default function PlaylistPage({ pairing: initialPairing, genre, onBack, o
                           )}
                         </div>
 
-                        {/* Lyrics indicator */}
+                        {/* Lyrics indicator — hide on mobile to save space */}
                         {track.lyrics && (
                           <span className="hidden sm:flex items-center text-white/20 text-xs gap-1 flex-shrink-0">
                             <span className="w-1.5 h-1.5 rounded-full bg-current" />
@@ -253,7 +253,7 @@ export default function PlaylistPage({ pairing: initialPairing, genre, onBack, o
                               href={track.youtube_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-150 border"
+                              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 rounded-xl text-xs font-medium transition-all duration-150 border"
                               style={{
                                 background: isHovered ? 'rgba(239,68,68,0.25)' : 'rgba(239,68,68,0.1)',
                                 borderColor: 'rgba(239,68,68,0.3)',
@@ -263,9 +263,7 @@ export default function PlaylistPage({ pairing: initialPairing, genre, onBack, o
                               <ExternalLink className="w-3 h-3" />
                               <span className="hidden sm:inline">YouTube</span>
                             </a>
-                          ) : (
-                            <span className="text-white/15 text-xs w-16 text-center">—</span>
-                          )}
+                          ) : null}
                         </div>
                       </div>
                     );

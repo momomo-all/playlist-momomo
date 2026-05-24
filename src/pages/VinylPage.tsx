@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   ChevronLeft, Upload, AlignCenter, AlignLeft, AlignRight,
-  RotateCw, Maximize2, Download, Pencil, Check,
+  RotateCw, Maximize2, Download, Pencil, Check, X,
 } from 'lucide-react';
 import {
   getVinylData, saveVinylData, VinylData, ElementTransform,
@@ -35,7 +35,7 @@ const FONT_OPTIONS = [
   { label: 'Round', value: '"Trebuchet MS", sans-serif' },
 ];
 
-/* ── drag hook ── */
+/* ── drag hook (mouse + touch) ── */
 
 function useDrag(enabled: boolean, onMove: (dx: number, dy: number) => void) {
   const active = useRef(false);
@@ -61,7 +61,28 @@ function useDrag(enabled: boolean, onMove: (dx: number, dy: number) => void) {
     window.addEventListener('mouseup', up);
   }, [enabled, onMove]);
 
-  return { onMouseDown };
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!enabled) return;
+    const t = e.touches[0];
+    active.current = true;
+    last.current = { x: t.clientX, y: t.clientY };
+
+    const move = (te: TouchEvent) => {
+      if (!active.current) return;
+      const tt = te.touches[0];
+      onMove(tt.clientX - last.current.x, tt.clientY - last.current.y);
+      last.current = { x: tt.clientX, y: tt.clientY };
+    };
+    const up = () => {
+      active.current = false;
+      window.removeEventListener('touchmove', move);
+      window.removeEventListener('touchend', up);
+    };
+    window.addEventListener('touchmove', move, { passive: true });
+    window.addEventListener('touchend', up);
+  }, [enabled, onMove]);
+
+  return { onMouseDown, onTouchStart };
 }
 
 /* ── PNG export ── */
@@ -194,10 +215,17 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
   const [titleDraft,   setTitleDraft]   = useState('');
   const [jacketOff,    setJacketOff]    = useState({ x: 0, y: 0 });
   const [diskOff,      setDiskOff]      = useState({ x: 0, y: 0 });
-  const [panelOff,     setPanelOff]     = useState({ x: 0, y: 0 });
+  const [isMobile,     setIsMobile]     = useState(false);
 
   const jacketInputRef = useRef<HTMLInputElement>(null);
   const sceneRef       = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   useEffect(() => {
     setJacketOff({ x: vd.jacketTransform.x, y: vd.jacketTransform.y });
@@ -287,11 +315,6 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
     });
   }, [pairing.id]));
 
-  const panelDragEnabled = !editingLog && !editingTitle && !showCustom;
-  const panelDrag = useDrag(panelDragEnabled, useCallback((dx, dy) => {
-    setPanelOff(prev => ({ x: Math.max(0, prev.x + dx), y: prev.y + dy }));
-  }, []));
-
   const rgb = hexToRgb(pairing.theme_color || '#1a1a2e');
   const bgImg = jacketUrl || resolvedCover;
   const displayTitle = vd.title || (track ? track.title : pairing.name);
@@ -299,10 +322,199 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
   const ls = vd.labelStyle;
   const hasNote = !!vd.note?.trim();
 
+  /* ── MOBILE LAYOUT ── */
+  if (isMobile) {
+    return (
+      <div className="fixed inset-0 overflow-hidden bg-[#0a0a0a] flex flex-col">
+        {/* Background */}
+        <div className="absolute inset-0">
+          {bgImg && (
+            <img src={bgImg} alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{ filter: 'blur(70px)', transform: 'scale(1.3)', opacity: 0.8 }} />
+          )}
+          <div className="absolute inset-0" style={{ background: 'rgba(4,4,6,0.65)' }} />
+        </div>
+
+        {/* Top nav */}
+        <div className="relative z-40 flex items-center justify-between px-4 pt-4 pb-3 flex-shrink-0">
+          <button onClick={onBack}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-black/40 border border-white/12 text-white backdrop-blur-md active:scale-95">
+            <ChevronLeft className="w-4 h-4 text-white/60" />
+            <span className="text-sm font-semibold">돌아가기</span>
+          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExport}
+              disabled={exporting}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-white text-sm backdrop-blur-md active:scale-95 disabled:opacity-50"
+              style={{ background: 'rgba(0,0,0,0.38)', borderColor: 'rgba(255,255,255,0.12)' }}>
+              <Download className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => { setShowLog(v => !v); setShowCustom(false); }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-white text-sm backdrop-blur-md active:scale-95"
+              style={showLog
+                ? { background: `rgba(${rgb},0.38)`, borderColor: `rgba(${rgb},0.65)` }
+                : { background: 'rgba(0,0,0,0.38)', borderColor: 'rgba(255,255,255,0.12)' }}>
+              <Pencil className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => { setShowCustom(v => !v); setShowLog(false); }}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border text-white text-sm backdrop-blur-md active:scale-95"
+              style={showCustom
+                ? { background: `rgba(${rgb},0.38)`, borderColor: `rgba(${rgb},0.65)` }
+                : { background: 'rgba(0,0,0,0.38)', borderColor: 'rgba(255,255,255,0.12)' }}>
+              <span style={{ fontSize: 16 }}>🎨</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Vinyl scene */}
+        <div ref={sceneRef} className="relative z-20 flex-shrink-0 flex items-center justify-center"
+          style={{ height: '46vw', minHeight: 160, maxHeight: 260 }}>
+          <div className="relative flex items-center" style={{ width: '80vw', height: '100%' }}>
+            {/* Jacket */}
+            <div
+              className="absolute cursor-grab active:cursor-grabbing"
+              style={{
+                width: '42%', aspectRatio: '1',
+                left: '2%', top: '50%', zIndex: 4,
+                transform: `translateY(-50%) translate(${jacketOff.x}px, ${jacketOff.y}px) scale(${vd.jacketTransform.scale}) rotate(${vd.jacketTransform.rotate}deg)`,
+                userSelect: 'none',
+              }}
+              {...jacketDrag}
+            >
+              <div className="w-full h-full rounded-xl overflow-hidden relative"
+                style={{ boxShadow: `0 20px 60px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.08)` }}>
+                {jacketUrl
+                  ? <img src={jacketUrl} alt={pairing.name} className="w-full h-full object-cover pointer-events-none" draggable={false} />
+                  : <div className="w-full h-full" style={{ background: `linear-gradient(135deg, ${pairing.theme_color}, #111)` }} />
+                }
+              </div>
+            </div>
+            {/* Disc */}
+            <div className="absolute cursor-grab active:cursor-grabbing"
+              style={{
+                width: '60%', aspectRatio: '1',
+                right: '0%', top: '50%', zIndex: 3,
+                transform: `translateY(-50%) translate(${diskOff.x}px, ${diskOff.y}px) scale(${vd.diskTransform.scale}) rotate(${vd.diskTransform.rotate}deg)`,
+                userSelect: 'none',
+              }}
+              {...diskDrag}
+            >
+              <div className="w-full h-full rounded-full relative overflow-hidden"
+                style={{ animation: 'vinyl-spin 4s linear infinite', boxShadow: `0 20px 60px rgba(0,0,0,0.88)` }}>
+                <div className="absolute inset-0 rounded-full" style={{ background: diskGradient }} />
+                <DiskPattern id={vd.patternTheme as PatternId} color="rgba(255,255,255,0.9)" />
+                <div className="absolute rounded-full overflow-hidden"
+                  style={{ width: '30%', height: '30%', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: 'radial-gradient(circle, #1e1e1e, #0a0a0a)', boxShadow: '0 0 0 2px rgba(255,255,255,0.2)', zIndex: 2 }}>
+                  <div className="w-full h-full flex items-center justify-center px-1 py-1">
+                    <p className="leading-tight break-words w-full"
+                      style={{ fontSize: Math.max(6, ls.fontSize * 0.7), color: ls.color, fontFamily: ls.fontFamily, fontWeight: 700, textAlign: ls.textAlign as 'center' | 'left' | 'right', wordBreak: 'break-word' }}>
+                      {ls.text || displayTitle}
+                    </p>
+                  </div>
+                  <div className="absolute w-[13%] h-[13%] rounded-full bg-zinc-200/70"
+                    style={{ top: '50%', left: '50%', transform: 'translate(-50%,-50%)', zIndex: 3 }} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Title */}
+        <div className="relative z-20 flex-shrink-0 px-5 pt-3 pb-2">
+          <p className="text-white/30 text-[10px] uppercase tracking-[0.2em] mb-0.5">Now Playing</p>
+          {editingTitle ? (
+            <form onSubmit={e => { e.preventDefault(); update({ title: titleDraft }); setEditingTitle(false); }}
+              className="flex items-center gap-2">
+              <input autoFocus value={titleDraft} onChange={e => setTitleDraft(e.target.value)}
+                onBlur={() => { update({ title: titleDraft }); setEditingTitle(false); }}
+                onKeyDown={e => e.key === 'Escape' && setEditingTitle(false)}
+                className="flex-1 bg-transparent border-b text-white text-xl font-bold tracking-tight focus:outline-none"
+                style={{ borderColor: `rgba(${rgb},0.6)`, caretColor: pairing.theme_color }} />
+            </form>
+          ) : (
+            <div className="flex items-center gap-2" onClick={() => { setTitleDraft(displayTitle); setEditingTitle(true); }}>
+              <h1 className="text-white text-xl font-bold tracking-tight leading-tight">{displayTitle}</h1>
+              <Pencil className="w-3.5 h-3.5 text-white/30 flex-shrink-0" />
+            </div>
+          )}
+        </div>
+
+        {/* Scrollable content area */}
+        <div className="relative z-20 flex-1 min-h-0 overflow-y-auto px-5 pb-6"
+          style={{ scrollbarWidth: 'none' }}>
+
+          {/* Log panel */}
+          {showLog && (
+            <div className="flex flex-col gap-3 pt-2">
+              {editingLog ? (
+                <>
+                  <textarea autoFocus value={logDraft} onChange={e => setLogDraft(e.target.value)}
+                    placeholder="가사나 대화 로그를 기록해보세요..."
+                    className="w-full rounded-2xl px-4 py-3.5 text-white/80 text-sm leading-[1.9] resize-none focus:outline-none"
+                    rows={8}
+                    style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid rgba(${rgb},0.35)`, caretColor: pairing.theme_color }} />
+                  <button onClick={saveLog}
+                    className="flex items-center justify-center gap-2 py-3 rounded-xl text-white text-sm font-semibold active:scale-95"
+                    style={{ background: `rgba(${rgb},0.45)`, border: `1px solid rgba(${rgb},0.7)` }}>
+                    <Check className="w-4 h-4" /> 저장
+                  </button>
+                </>
+              ) : (
+                <>
+                  {hasNote && (
+                    <p className="text-white/75 whitespace-pre-wrap leading-[2.0] text-sm"
+                      style={{ fontFamily: '"Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif' }}>
+                      {vd.note}
+                    </p>
+                  )}
+                  <button onClick={() => setEditingLog(true)}
+                    className="flex items-center justify-center gap-2 py-3 rounded-xl text-white/60 text-sm font-semibold border border-white/10 active:scale-95"
+                    style={{ background: 'rgba(255,255,255,0.04)' }}>
+                    <Pencil className="w-3.5 h-3.5" />
+                    {hasNote ? '로그 편집' : '로그 작성'}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Custom panel */}
+          {showCustom && (
+            <div className="pt-2 space-y-6">
+              <CustomPanel
+                vd={vd} update={update} updateJacket={updateJacket} updateDisk={updateDisk}
+                rgb={rgb} onJacketUpload={() => jacketInputRef.current?.click()} />
+            </div>
+          )}
+
+          {/* Default ambient note */}
+          {!showLog && !showCustom && hasNote && (
+            <div className="pt-2">
+              <p className="whitespace-pre-wrap leading-[2.0] text-sm"
+                style={{ color: 'rgba(255,255,255,0.42)', fontFamily: '"Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif' }}>
+                {vd.note}
+              </p>
+            </div>
+          )}
+          {!showLog && !showCustom && !hasNote && (
+            <p className="text-white/18 text-sm pt-2">로그 버튼으로 이 LP에 대한 기록을 남겨보세요.</p>
+          )}
+        </div>
+
+        <input ref={jacketInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+      </div>
+    );
+  }
+
+  /* ── DESKTOP LAYOUT ── */
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#0a0a0a]">
 
-      {/* ── Background ── */}
+      {/* Background */}
       <div className="absolute inset-0">
         {bgImg && (
           <img src={bgImg} alt=""
@@ -323,7 +535,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
           style={{ background: pairing.theme_color, bottom: '-15%', right: '-10%' }} />
       </div>
 
-      {/* ── Top nav ── */}
+      {/* Top nav */}
       <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-between px-7 pt-6">
         <button onClick={onBack}
           className="group flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-black/40 hover:bg-black/60 border border-white/12 hover:border-white/25 text-white backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95">
@@ -332,9 +544,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
         </button>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleExport}
-            disabled={exporting}
+          <button onClick={handleExport} disabled={exporting}
             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border text-white text-sm font-semibold backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
             style={{ background: 'rgba(0,0,0,0.38)', borderColor: 'rgba(255,255,255,0.12)' }}>
             <Download className="w-4 h-4" />
@@ -363,10 +573,10 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
         </div>
       </div>
 
-      {/* ── Main layout ── */}
+      {/* Main layout */}
       <div className="relative z-20 flex h-full" style={{ paddingTop: 68, paddingBottom: 12 }}>
 
-        {/* ══ LEFT: vinyl scene ══ */}
+        {/* LEFT: vinyl scene */}
         <div
           ref={sceneRef}
           className={`flex items-center justify-center transition-all duration-500 ease-out flex-shrink-0 ${showLog ? '-translate-x-[4%]' : 'translate-x-0'}`}
@@ -379,11 +589,8 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
             <div
               className="absolute cursor-grab active:cursor-grabbing"
               style={{
-                width: showLog ? '40%' : '46%',
-                aspectRatio: '1',
-                left: showLog ? '0%' : '2%',
-                top: '50%',
-                zIndex: 4,
+                width: showLog ? '40%' : '46%', aspectRatio: '1',
+                left: showLog ? '0%' : '2%', top: '50%', zIndex: 4,
                 transform: `translateY(-50%) translate(${jacketOff.x}px, ${jacketOff.y}px) scale(${vd.jacketTransform.scale}) rotate(${vd.jacketTransform.rotate}deg)`,
                 transition: 'width 0.5s ease, left 0.5s ease',
                 userSelect: 'none',
@@ -435,21 +642,11 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
                 <div className="absolute inset-0 rounded-full pointer-events-none" style={{
                   background: 'radial-gradient(circle at 50% 50%, transparent 60%, rgba(0,0,0,0.45) 100%)',
                 }} />
-                {/* center label */}
                 <div className="absolute rounded-full overflow-hidden"
-                  style={{
-                    width: '30%', height: '30%', top: '50%', left: '50%',
-                    transform: 'translate(-50%,-50%)',
-                    background: 'radial-gradient(circle, #1e1e1e, #0a0a0a)',
-                    boxShadow: '0 0 0 2.5px rgba(255,255,255,0.2)', zIndex: 2,
-                  }}>
+                  style={{ width: '30%', height: '30%', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: 'radial-gradient(circle, #1e1e1e, #0a0a0a)', boxShadow: '0 0 0 2.5px rgba(255,255,255,0.2)', zIndex: 2 }}>
                   <div className="w-full h-full flex items-center justify-center px-1.5 py-1.5">
                     <p className="leading-tight break-words w-full"
-                      style={{
-                        fontSize: ls.fontSize, color: ls.color, fontFamily: ls.fontFamily,
-                        fontWeight: 700, textAlign: ls.textAlign as 'center' | 'left' | 'right',
-                        wordBreak: 'break-word',
-                      }}>
+                      style={{ fontSize: ls.fontSize, color: ls.color, fontFamily: ls.fontFamily, fontWeight: 700, textAlign: ls.textAlign as 'center' | 'left' | 'right', wordBreak: 'break-word' }}>
                       {ls.text || displayTitle}
                     </p>
                   </div>
@@ -464,162 +661,107 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
           </div>
         </div>
 
-        {/* ══ RIGHT: panels ══ */}
+        {/* RIGHT: panels */}
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden"
           style={{ paddingRight: showCustom || showLog ? 0 : 40, paddingTop: 8, transition: 'padding 0.4s' }}>
 
-          <div
-            className={`flex flex-col flex-1 min-h-0 ${panelDragEnabled ? 'cursor-grab active:cursor-grabbing' : ''}`}
-            style={{ transform: `translate(${showCustom ? 0 : panelOff.x}px, ${showCustom ? 0 : panelOff.y}px)`, userSelect: 'none' }}
-            {...panelDrag}
-          >
+          <div className="flex flex-col flex-1 min-h-0">
 
-          {/* ── title block ── */}
-          <div className={`flex-shrink-0 transition-all duration-500 ${showLog ? 'mb-2' : 'mb-5'}`}>
-            <p className="text-white/30 text-xs uppercase tracking-[0.2em] mb-1">Now Playing</p>
-            {editingTitle ? (
-              <form
-                onSubmit={e => {
-                  e.preventDefault();
-                  update({ title: titleDraft });
-                  setEditingTitle(false);
-                }}
-                className="flex items-center gap-2">
-                <input
-                  autoFocus
-                  value={titleDraft}
-                  onChange={e => setTitleDraft(e.target.value)}
-                  onBlur={() => { update({ title: titleDraft }); setEditingTitle(false); }}
-                  onKeyDown={e => e.key === 'Escape' && setEditingTitle(false)}
-                  className="flex-1 bg-transparent border-b text-white font-bold tracking-tight leading-tight focus:outline-none"
-                  style={{
-                    fontSize: showLog ? '1.1rem' : 'clamp(18px, 2.5vw, 32px)',
-                    borderColor: `rgba(${rgb},0.6)`,
-                    caretColor: pairing.theme_color,
-                  }}
-                />
-              </form>
-            ) : (
-              <div className="group flex items-center gap-2 cursor-pointer"
-                onClick={() => { setTitleDraft(displayTitle); setEditingTitle(true); }}>
-                <h1 className="text-white font-bold tracking-tight leading-tight"
-                  style={{ fontSize: showLog ? '1.1rem' : 'clamp(18px, 2.5vw, 32px)' }}>
-                  {displayTitle}
-                </h1>
-                <Pencil className="w-3.5 h-3.5 text-white/0 group-hover:text-white/35 transition-colors flex-shrink-0" />
+            {/* Title block */}
+            <div className={`flex-shrink-0 transition-all duration-500 ${showLog ? 'mb-2' : 'mb-5'}`}>
+              <p className="text-white/30 text-xs uppercase tracking-[0.2em] mb-1">Now Playing</p>
+              {editingTitle ? (
+                <form onSubmit={e => { e.preventDefault(); update({ title: titleDraft }); setEditingTitle(false); }}
+                  className="flex items-center gap-2">
+                  <input autoFocus value={titleDraft} onChange={e => setTitleDraft(e.target.value)}
+                    onBlur={() => { update({ title: titleDraft }); setEditingTitle(false); }}
+                    onKeyDown={e => e.key === 'Escape' && setEditingTitle(false)}
+                    className="flex-1 bg-transparent border-b text-white font-bold tracking-tight leading-tight focus:outline-none"
+                    style={{ fontSize: showLog ? '1.1rem' : 'clamp(18px, 2.5vw, 32px)', borderColor: `rgba(${rgb},0.6)`, caretColor: pairing.theme_color }} />
+                </form>
+              ) : (
+                <div className="group flex items-center gap-2 cursor-pointer"
+                  onClick={() => { setTitleDraft(displayTitle); setEditingTitle(true); }}>
+                  <h1 className="text-white font-bold tracking-tight leading-tight"
+                    style={{ fontSize: showLog ? '1.1rem' : 'clamp(18px, 2.5vw, 32px)' }}>
+                    {displayTitle}
+                  </h1>
+                  <Pencil className="w-3.5 h-3.5 text-white/0 group-hover:text-white/35 transition-colors flex-shrink-0" />
+                </div>
+              )}
+            </div>
+
+            {/* Custom panel */}
+            {showCustom && (
+              <div className="flex-1 min-h-0 overflow-y-auto pr-4 space-y-6"
+                style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}>
+                <CustomPanel vd={vd} update={update} updateJacket={updateJacket} updateDisk={updateDisk}
+                  rgb={rgb} onJacketUpload={() => jacketInputRef.current?.click()} />
               </div>
             )}
-          </div>
 
-          {/* ── CUSTOM PANEL ── */}
-          {showCustom && (
-            <div className="flex-1 min-h-0 overflow-y-auto pr-4 space-y-6"
-              style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}>
-              <CustomPanel
-                vd={vd}
-                update={update}
-                updateJacket={updateJacket}
-                updateDisk={updateDisk}
-                rgb={rgb}
-                onJacketUpload={() => jacketInputRef.current?.click()}
-              />
-            </div>
-          )}
-
-          {/* ── LOG PANEL ── */}
-          {showLog && (
-            <div className="flex-1 min-h-0 flex flex-col gap-3">
-              {editingLog ? (
-                <>
-                  <textarea
-                    autoFocus
-                    value={logDraft}
-                    onChange={e => setLogDraft(e.target.value)}
-                    placeholder={'가사나 대화 로그를 자유롭게 기록해보세요...\n\n저장은 버튼을 누르면 됩니다.'}
-                    className="flex-1 min-h-0 w-full rounded-2xl px-5 py-4 text-white/80 text-sm leading-[1.95] resize-none focus:outline-none transition-all"
-                    style={{
-                      background: 'rgba(255,255,255,0.05)',
-                      border: `1px solid rgba(${rgb},0.35)`,
-                      scrollbarWidth: 'thin',
-                      scrollbarColor: 'rgba(255,255,255,0.1) transparent',
-                      caretColor: pairing.theme_color,
-                    }}
-                  />
-                  <button
-                    onClick={saveLog}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:scale-[1.01] active:scale-95"
-                    style={{ background: `rgba(${rgb},0.45)`, border: `1px solid rgba(${rgb},0.7)` }}>
-                    <Check className="w-4 h-4" /> 저장
-                  </button>
-                </>
-              ) : (
-                <div className="flex-1 min-h-0 flex flex-col">
-                  <div
-                    className="flex-1 overflow-y-auto rounded-2xl px-5 py-4"
-                    style={{
-                      background: 'rgba(255,255,255,0.03)',
-                      border: '1px solid rgba(255,255,255,0.07)',
-                      scrollbarWidth: 'thin',
-                      scrollbarColor: 'rgba(255,255,255,0.08) transparent',
-                    }}>
-                    {hasNote ? (
-                      <p
-                        className="text-white/80 whitespace-pre-wrap leading-[2.0]"
-                        style={{
-                          fontSize: 'clamp(14px, 1.4vw, 17px)',
-                          fontFamily: '"Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif',
-                        }}>
-                        {vd.note}
-                      </p>
-                    ) : (
-                      <p className="text-white/18 text-sm italic">아직 작성된 로그가 없습니다.</p>
-                    )}
+            {/* Log panel */}
+            {showLog && (
+              <div className="flex-1 min-h-0 flex flex-col gap-3">
+                {editingLog ? (
+                  <>
+                    <textarea autoFocus value={logDraft} onChange={e => setLogDraft(e.target.value)}
+                      placeholder={'가사나 대화 로그를 자유롭게 기록해보세요...\n\n저장은 버튼을 누르면 됩니다.'}
+                      className="flex-1 min-h-0 w-full rounded-2xl px-5 py-4 text-white/80 text-sm leading-[1.95] resize-none focus:outline-none transition-all"
+                      style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid rgba(${rgb},0.35)`, scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent', caretColor: pairing.theme_color }} />
+                    <button onClick={saveLog}
+                      className="flex-shrink-0 flex items-center justify-center gap-2 py-2.5 rounded-xl text-white text-sm font-semibold transition-all hover:scale-[1.01] active:scale-95"
+                      style={{ background: `rgba(${rgb},0.45)`, border: `1px solid rgba(${rgb},0.7)` }}>
+                      <Check className="w-4 h-4" /> 저장
+                    </button>
+                  </>
+                ) : (
+                  <div className="flex-1 min-h-0 flex flex-col">
+                    <div className="flex-1 overflow-y-auto rounded-2xl px-5 py-4"
+                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.08) transparent' }}>
+                      {hasNote ? (
+                        <p className="text-white/80 whitespace-pre-wrap leading-[2.0]"
+                          style={{ fontSize: 'clamp(14px, 1.4vw, 17px)', fontFamily: '"Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif' }}>
+                          {vd.note}
+                        </p>
+                      ) : (
+                        <p className="text-white/18 text-sm italic">아직 작성된 로그가 없습니다.</p>
+                      )}
+                    </div>
+                    <button onClick={() => setEditingLog(true)}
+                      className="flex-shrink-0 flex items-center justify-center gap-2 mt-3 py-2.5 rounded-xl text-white/60 text-sm font-semibold border border-white/10 hover:border-white/22 hover:text-white transition-all hover:scale-[1.01] active:scale-95"
+                      style={{ background: 'rgba(255,255,255,0.04)' }}>
+                      <Pencil className="w-3.5 h-3.5" />
+                      {hasNote ? '로그 편집' : '로그 작성'}
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setEditingLog(true)}
-                    className="flex-shrink-0 flex items-center justify-center gap-2 mt-3 py-2.5 rounded-xl text-white/60 text-sm font-semibold border border-white/10 hover:border-white/22 hover:text-white transition-all hover:scale-[1.01] active:scale-95"
-                    style={{ background: 'rgba(255,255,255,0.04)' }}>
-                    <Pencil className="w-3.5 h-3.5" />
-                    {hasNote ? '로그 편집' : '로그 작성'}
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
 
-          {/* ── DEFAULT STATE ── */}
-          {!showCustom && !showLog && (
-            <div className="flex-1 min-h-0 overflow-hidden">
-              {hasNote ? (
-                <div
-                  className="h-full overflow-y-auto"
-                  style={{ scrollbarWidth: 'none' }}>
-                  <p
-                    className="whitespace-pre-wrap leading-[2.1] tracking-wide"
-                    style={{
-                      fontSize: 'clamp(15px, 1.5vw, 19px)',
-                      color: 'rgba(255,255,255,0.45)',
-                      fontFamily: '"Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif',
-                    }}>
-                    {vd.note}
-                  </p>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2 pt-1">
-                  <p className="text-white/18 text-sm">
-                    [로그 열기]로 이 LP에 대한 기록을 남겨보세요.
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
+            {/* Default ambient */}
+            {!showCustom && !showLog && (
+              <div className="flex-1 min-h-0 overflow-hidden">
+                {hasNote ? (
+                  <div className="h-full overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+                    <p className="whitespace-pre-wrap leading-[2.1] tracking-wide"
+                      style={{ fontSize: 'clamp(15px, 1.5vw, 19px)', color: 'rgba(255,255,255,0.45)', fontFamily: '"Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif' }}>
+                      {vd.note}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2 pt-1">
+                    <p className="text-white/18 text-sm">[로그 열기]로 이 LP에 대한 기록을 남겨보세요.</p>
+                  </div>
+                )}
+              </div>
+            )}
 
           </div>
         </div>
       </div>
 
-      <input ref={jacketInputRef} type="file" accept="image/*" className="hidden"
-        onChange={handleImageUpload} />
+      <input ref={jacketInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
     </div>
   );
 }
@@ -656,7 +798,7 @@ function CustomPanel({ vd, update, updateJacket, updateDisk, rgb, onJacketUpload
         <div className="grid grid-cols-3 gap-2">
           {PATTERN_THEMES.map(t => (
             <button key={t.id} onClick={() => update({ patternTheme: t.id })}
-              className="relative rounded-xl overflow-hidden transition-all hover:scale-[1.04] active:scale-95"
+              className="relative rounded-xl overflow-hidden transition-all active:scale-95"
               style={{
                 aspectRatio: '1',
                 background: vd.patternTheme === t.id ? `rgba(${rgb},0.35)` : 'rgba(255,255,255,0.05)',
@@ -690,7 +832,9 @@ function CustomPanel({ vd, update, updateJacket, updateDisk, rgb, onJacketUpload
                 maxLength={7} />
               {vd.gradientColors.length > 2 && (
                 <button onClick={() => update({ gradientColors: vd.gradientColors.filter((_, j) => j !== i) })}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/20 text-white/25 hover:text-red-400 transition-all">×</button>
+                  className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-500/20 text-white/25 hover:text-red-400 transition-all">
+                  <X className="w-3.5 h-3.5" />
+                </button>
               )}
             </div>
           ))}
@@ -705,17 +849,13 @@ function CustomPanel({ vd, update, updateJacket, updateDisk, rgb, onJacketUpload
 
       <div>
         <SectionTitle>라벨 텍스트 편집</SectionTitle>
-        <textarea
-          value={vd.labelStyle.text}
-          onChange={e => setLabel({ text: e.target.value })}
-          rows={2}
-          placeholder="중앙 라벨 텍스트 (비우면 곡 제목 표시)"
-          className="w-full bg-white/5 border border-white/8 rounded-xl px-3 py-2.5 text-white text-sm resize-none focus:outline-none focus:border-white/22 placeholder-white/18 mb-3"
-        />
+        <textarea value={vd.labelStyle.text} onChange={e => setLabel({ text: e.target.value })}
+          rows={2} placeholder="중앙 라벨 텍스트 (비우면 곡 제목 표시)"
+          className="w-full bg-white/5 border border-white/8 rounded-xl px-3 py-2.5 text-white text-sm resize-none focus:outline-none focus:border-white/22 placeholder-white/18 mb-3" />
         <div className="flex gap-1.5 mb-3">
           {FONT_OPTIONS.map(f => (
             <button key={f.value} onClick={() => setLabel({ fontFamily: f.value })}
-              className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all"
+              className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95"
               style={{
                 background: vd.labelStyle.fontFamily === f.value ? `rgba(${rgb},0.4)` : 'rgba(255,255,255,0.06)',
                 border: `1px solid ${vd.labelStyle.fontFamily === f.value ? `rgba(${rgb},0.7)` : 'rgba(255,255,255,0.08)'}`,
@@ -755,7 +895,7 @@ function CustomPanel({ vd, update, updateJacket, updateDisk, rgb, onJacketUpload
         <SectionTitle>자켓 편집</SectionTitle>
         <div className="space-y-2.5">
           <button onClick={onJacketUpload}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white/70 text-xs font-medium transition-all hover:text-white"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-white/70 text-xs font-medium transition-all hover:text-white active:scale-95"
             style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
             <Upload className="w-3.5 h-3.5" /> 자켓 사진 교체
           </button>
