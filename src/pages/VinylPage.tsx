@@ -662,8 +662,8 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
         </div>
 
         {/* RIGHT: panels */}
-        <div className="flex flex-col flex-1 min-w-0 overflow-hidden"
-          style={{ paddingRight: showCustom || showLog ? 0 : 40, paddingTop: 8, transition: 'padding 0.4s' }}>
+        <div className="flex flex-col flex-1 min-w-0"
+          style={{ paddingRight: showCustom || showLog ? 0 : 40, paddingTop: 8, transition: 'padding 0.4s', overflow: 'visible' }}>
 
           <div className="flex flex-col flex-1 min-h-0">
 
