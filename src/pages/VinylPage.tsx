@@ -76,7 +76,6 @@ async function exportToPng(
   const W = Math.round(sceneRect.width);
   const H = Math.round(sceneRect.height);
 
-  // right panel width for composite
   const NOTE_W = note.trim() ? 420 : 0;
   const TOTAL_W = W + NOTE_W;
   const TOTAL_H = H;
@@ -88,13 +87,9 @@ async function exportToPng(
   const ctx = canvas.getContext('2d')!;
   ctx.scale(dpr, dpr);
 
-  // background
   ctx.fillStyle = '#0a0a0a';
   ctx.fillRect(0, 0, TOTAL_W, TOTAL_H);
 
-  // draw scene as a snapshot via html2canvas-like approach:
-  // we use a temporary foreignObject inside SVG → rasterise
-  // This works only for same-origin content (all local here)
   const svgString = `
     <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
       <foreignObject width="${W}" height="${H}">
@@ -114,12 +109,9 @@ async function exportToPng(
   ctx.drawImage(img, 0, 0, W, H);
   URL.revokeObjectURL(url);
 
-  // right panel with note text
   if (NOTE_W > 0 && note.trim()) {
-    // panel bg
     ctx.fillStyle = 'rgba(10,10,12,0.92)';
     ctx.fillRect(W, 0, NOTE_W, TOTAL_H);
-    // divider
     ctx.strokeStyle = 'rgba(255,255,255,0.07)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -128,22 +120,18 @@ async function exportToPng(
     ctx.stroke();
 
     const PAD = 36;
-    // title
     ctx.fillStyle = 'rgba(255,255,255,0.25)';
     ctx.font = '11px system-ui';
     ctx.fillText('VINYL LOG', W + PAD, PAD + 14);
-    // theme accent line
     ctx.strokeStyle = themeColor;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(W + PAD, PAD + 28);
     ctx.lineTo(W + NOTE_W - PAD, PAD + 28);
     ctx.stroke();
-    // title
     ctx.fillStyle = 'rgba(255,255,255,0.90)';
     ctx.font = 'bold 18px system-ui';
     ctx.fillText(title, W + PAD, PAD + 56, NOTE_W - PAD * 2);
-    // note body
     ctx.font = '15px system-ui';
     ctx.fillStyle = 'rgba(255,255,255,0.72)';
     const lines = note.split('\n');
@@ -152,7 +140,6 @@ async function exportToPng(
     const maxW = NOTE_W - PAD * 2;
     for (const line of lines) {
       if (y > TOTAL_H - PAD) break;
-      // word-wrap
       const words = line.split('');
       let row = '';
       for (const ch of words) {
@@ -345,7 +332,6 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
         </button>
 
         <div className="flex items-center gap-2">
-          {/* PNG 저장 */}
           <button
             onClick={handleExport}
             disabled={exporting}
@@ -355,7 +341,6 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
             {exporting ? '저장 중...' : 'PNG 저장'}
           </button>
 
-          {/* 로그 */}
           <button
             onClick={() => { setShowLog(v => !v); setShowCustom(false); if (showLog) setEditingLog(false); }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border text-white text-sm font-semibold backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95"
@@ -366,7 +351,6 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
             로그 {showLog ? '닫기' : '열기'}
           </button>
 
-          {/* LP 커스텀 */}
           <button
             onClick={() => { setShowCustom(v => !v); setShowLog(false); setEditingLog(false); }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-2xl border text-white text-sm font-semibold backdrop-blur-md transition-all hover:scale-[1.02] active:scale-95"
@@ -484,7 +468,6 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
         <div className="flex flex-col flex-1 min-w-0 overflow-hidden"
           style={{ paddingRight: showCustom || showLog ? 0 : 40, paddingTop: 8, transition: 'padding 0.4s' }}>
 
-          {/* draggable wrapper for title + content (not custom panel) */}
           <div
             className={`flex flex-col flex-1 min-h-0 ${panelDragEnabled ? 'cursor-grab active:cursor-grabbing' : ''}`}
             style={{ transform: `translate(${showCustom ? 0 : panelOff.x}px, ${showCustom ? 0 : panelOff.y}px)`, userSelect: 'none' }}
@@ -547,7 +530,6 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
           {showLog && (
             <div className="flex-1 min-h-0 flex flex-col gap-3">
               {editingLog ? (
-                /* edit mode */
                 <>
                   <textarea
                     autoFocus
@@ -571,7 +553,6 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
                   </button>
                 </>
               ) : (
-                /* view mode */
                 <div className="flex-1 min-h-0 flex flex-col">
                   <div
                     className="flex-1 overflow-y-auto rounded-2xl px-5 py-4"
@@ -606,7 +587,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
             </div>
           )}
 
-          {/* ── DEFAULT STATE: show saved log as ambient text ── */}
+          {/* ── DEFAULT STATE ── */}
           {!showCustom && !showLog && (
             <div className="flex-1 min-h-0 overflow-hidden">
               {hasNote ? (
@@ -633,7 +614,7 @@ function VinylPage({ pairing, track, resolvedCover, onBack }: Props) {
             </div>
           )}
 
-          </div>{/* end draggable wrapper */}
+          </div>
         </div>
       </div>
 
@@ -670,7 +651,6 @@ function CustomPanel({ vd, update, updateJacket, updateDisk, rgb, onJacketUpload
 
   return (
     <>
-      {/* pattern themes */}
       <div>
         <SectionTitle>패턴 테마</SectionTitle>
         <div className="grid grid-cols-3 gap-2">
@@ -695,7 +675,6 @@ function CustomPanel({ vd, update, updateJacket, updateDisk, rgb, onJacketUpload
         </div>
       </div>
 
-      {/* gradient colors */}
       <div>
         <SectionTitle>색상 조합</SectionTitle>
         <div className="space-y-2">
@@ -724,7 +703,6 @@ function CustomPanel({ vd, update, updateJacket, updateDisk, rgb, onJacketUpload
         </div>
       </div>
 
-      {/* label editor */}
       <div>
         <SectionTitle>라벨 텍스트 편집</SectionTitle>
         <textarea
@@ -773,7 +751,6 @@ function CustomPanel({ vd, update, updateJacket, updateDisk, rgb, onJacketUpload
         </div>
       </div>
 
-      {/* jacket controls */}
       <div>
         <SectionTitle>자켓 편집</SectionTitle>
         <div className="space-y-2.5">
@@ -795,7 +772,6 @@ function CustomPanel({ vd, update, updateJacket, updateDisk, rgb, onJacketUpload
         </div>
       </div>
 
-      {/* disk controls */}
       <div>
         <SectionTitle>디스크 편집</SectionTitle>
         <div className="space-y-2.5">
@@ -839,7 +815,7 @@ function SliderRow({ icon, label, min, max, step = 1, value, onChange, unit = ''
   );
 }
 
-export default VinylPage
+export default VinylPage;
 
 
 export default VinylPage
